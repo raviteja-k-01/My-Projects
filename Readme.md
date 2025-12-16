@@ -18,6 +18,7 @@ Instead of treating cancellations as a surface-level metric, the analysis connec
 - Power BI for interactive dashboards and business storytelling
 
 ## Project Structure
+```
 Uber-Ride-Cancellations-and-Wasted-Capacity-Analysis/
 ├── data/
 │   ├── raw/
@@ -31,14 +32,10 @@ Uber-Ride-Cancellations-and-Wasted-Capacity-Analysis/
 │   └── Uber Ride Analytics.pdf
 └── README.md
 
+```
 ## Dashboard Overview
-The Power BI dashboard is structured into three analytical views.
 
-Overview page presents a high-level snapshot of platform performance including total bookings, completed rides, cancellation rate, booking status distribution, and monthly booking and revenue trends. This establishes the scale and impact of cancellations before drilling into causes.
-
-Cancellations analysis focuses on why rides fail by examining cancellations by vehicle type, peak cancellation hours, monthly trends, and location-level hotspots. The patterns clearly show that cancellations are concentrated during high-demand periods, indicating availability failure rather than lack of demand.
-
-Wasted capacity and revenue impact quantifies the business cost of availability breakdown by measuring revenue loss by vehicle type, wasted capacity by cancellation reason, and peak hours of capacity loss. This translates operational issues into financial terms.
+<img width="1449" height="805" alt="overview" src="https://github.com/user-attachments/assets/960a6697-3ca8-49f1-bb3c-fb6f212c6806" />
 
 ## Key Insights
 - Availability is the primary constraint, not demand.
