@@ -2,7 +2,7 @@
 
 Upload **PDFs, Word docs, Excel sheets, Images, Audio, and Video** — then ask anything using **Groq** (free ⚡).
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### 1. Install dependencies
 ```bash
@@ -31,7 +31,7 @@ streamlit run frontend/app.py
 
 Open **http://localhost:8501** in your browser.
 
-## 📁 Supported Files
+## Supported Files
 
 | Type | Formats |
 |------|---------|
@@ -40,13 +40,13 @@ Open **http://localhost:8501** in your browser.
 | Audio | MP3, WAV, M4A, OGG |
 | Video | MP4, AVI, MOV, MKV |
 
-## 🤖 Models (all free on Groq)
+##  Models (all free on Groq)
 
 - **llama-4-scout-17b** — vision (images, video frames)
 - **llama-3.3-70b** — text documents
 - **whisper-large-v3-turbo** — audio/video transcription
 
-## 🏗️ Structure
+##  Structure
 
 ```
 multimodal-ai-assistant/
