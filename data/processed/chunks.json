@@ -1,0 +1,350 @@
+[
+  {
+    "chunk_id": 0,
+    "text": "An Amazon EC2 instance is a virtual server in the AWS Cloud environment. Users have full control over an instance from the time it is launched until it is terminated. Instances can run a variety of operating systems and can be configured after launch by installing software, updates, and applications. An instance is launched from an AMI (Amazon Machine Image) into a selected AWS Region and Availability Zone. Once launched, the instance transitions through a lifecycle of states: pending, running, stopping, stopped, and terminated. Billing begins when the instance enters the running state and stops when it transitions to shutting down during termination. Stopping an instance pauses billing; starting it again resumes billing. Instances can be managed directly or as managed instances, where a service provider such as Amazon EKS Auto Mode controls the instance settings. Managed instances cannot be directly modified and are identified by a true value in the Managed field. EC2 offers a wide range of instance types grouped by use case: - General purpose: Balanced compute, memory, and networking for diverse workloads - Compute optimized: High-performance processors for compute-bound applications - Memory optimized: Large memory footprint for memory-intensive applications - Storage optimized (high I/O): High sequential",
+    "source": "ec2_instances",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 1,
+    "text": "types grouped by use case: - General purpose: Balanced compute, memory, and networking for diverse workloads - Compute optimized: High-performance processors for compute-bound applications - Memory optimized: Large memory footprint for memory-intensive applications - Storage optimized (high I/O): High sequential read/write for large datasets - GPU compute: Parallel processing for machine learning and graphics workloads - Graphics intensive: High-performance graphics rendering Each instance type is composed of an instance family and an instance size (for example, m5.xlarge). More than 500 instance types are available across various processor options including Intel, AMD, and AWS Graviton. - Full OS-level control after launch including configuration, software installation, and patching - Wide range of instance types to match compute, memory, network, and storage requirements - Support for launch templates to store and reuse instance launch parameters - Automatic instance recovery in the event of underlying hardware failure - Instance metadata accessible from within the running instance via the Instance Metadata Service (IMDS) - Support for nested virtualization to run hypervisors within EC2 instances - Integration with EC2 Auto Scaling and EC2 Fleet for capacity optimization Application servers: Run web, application, or database server software on instances sized for the workload. Autoscaling workloads: Use EC2",
+    "source": "ec2_instances",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 2,
+    "text": "for nested virtualization to run hypervisors within EC2 instances - Integration with EC2 Auto Scaling and EC2 Fleet for capacity optimization Application servers: Run web, application, or database server software on instances sized for the workload. Autoscaling workloads: Use EC2 Auto Scaling to add or remove instances based on load, ensuring availability without over-provisioning. High-performance computing: Use compute-optimized or GPU instances for scientific modeling, batch processing, or machine learning training. Managed container workloads: Deploy containerized applications on EC2 instances managed by Amazon ECS or Amazon EKS.",
+    "source": "ec2_instances",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 3,
+    "text": "Amazon Elastic Compute Cloud (Amazon EC2) provides on-demand, scalable computing capacity in the AWS Cloud. It reduces hardware costs and allows faster application development and deployment. Using EC2, you can launch as many or as few virtual servers as needed, configure security and networking, and manage storage. An EC2 instance is a virtual server in the AWS Cloud. The instance type specified at launch determines the hardware available to that instance. Each instance type offers a different balance of compute, memory, network, and storage resources. EC2 instances are launched from Amazon Machine Images (AMIs), which are preconfigured templates that include the operating system and any additional software. Once launched, an instance transitions to a running state and billing begins. Billing stops when the instance is stopped or terminated. Users can scale capacity up or down based on demand using EC2 Auto Scaling or EC2 Fleet. - Instances: Virtual servers with configurable CPU, memory, storage, and networking - Amazon Machine Images (AMIs): Templates that package the OS and software needed to launch an instance - Instance types: Various hardware configurations optimized for different workloads - Amazon EBS volumes: Persistent block storage for instance data - Instance store volumes: Temporary storage deleted",
+    "source": "ec2_overview",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 4,
+    "text": "(AMIs): Templates that package the OS and software needed to launch an instance - Instance types: Various hardware configurations optimized for different workloads - Amazon EBS volumes: Persistent block storage for instance data - Instance store volumes: Temporary storage deleted when an instance is stopped, hibernated, or terminated - Key pairs: Secure login credentials; AWS stores the public key, user stores the private key - Security groups: Virtual firewalls that control inbound and outbound traffic by protocol, port, and IP range - PCI DSS compliance: EC2 supports processing, storage, and transmission of credit card data and is validated as PCI DSS compliant - EC2 Auto Scaling: Maintains the correct number of instances to handle application load - Elastic Load Balancing: Distributes incoming traffic across multiple instances - Amazon CloudWatch: Monitors instances and EBS volumes - AWS Backup: Automates backup of instances and attached EBS volumes - Amazon GuardDuty: Detects unauthorized or malicious use of EC2 instances - AWS Systems Manager: Provides end-to-end management of EC2 instances at scale Web application hosting: Launch instances to run web servers and application backends with configurable security and networking. Compute-intensive batch processing: Scale up instances for periodic compute-heavy tasks such as data processing or",
+    "source": "ec2_overview",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 5,
+    "text": "Provides end-to-end management of EC2 instances at scale Web application hosting: Launch instances to run web servers and application backends with configurable security and networking. Compute-intensive batch processing: Scale up instances for periodic compute-heavy tasks such as data processing or rendering, then scale down when complete. Development and testing environments: Provision virtual servers on demand without upfront hardware investment. Containerized workloads: Run containerized applications using Amazon ECS or Amazon EKS on EC2 instance clusters.",
+    "source": "ec2_overview",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 6,
+    "text": "Amazon EC2 offers multiple purchasing and billing options to allow users to optimize cost based on usage patterns, commitment level, and workload characteristics. All billing options use per-second billing with a minimum charge of 60 seconds. EC2 usage is billed in one-second increments with a 60-second minimum. This applies to all purchasing options, all Regions, and all Availability Zones. The same per-second billing applies to provisioned Amazon EBS storage. Billing starts when an instance enters the running state and stops when the instance terminates or stops. Pay by the second for instances that are launched with no long-term commitment. The price per second is fixed and listed on the EC2 On-Demand pricing page. Recommended for short-term, irregular workloads that cannot be interrupted. On-Demand quotas are managed in terms of vCPUs per AWS account per Region. Reduce costs by committing to a consistent usage amount measured in USD per hour for a term of 1 or 3 years. EC2 Instance Savings Plans offer savings up to 72 percent off On-Demand pricing. Savings Plans provide flexibility to use different instance configurations within a committed family and Region. AWS recommends Savings Plans over Reserved Instances for most use cases. Reduce costs by committing",
+    "source": "ec2_pricing",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 7,
+    "text": "Plans offer savings up to 72 percent off On-Demand pricing. Savings Plans provide flexibility to use different instance configurations within a committed family and Region. AWS recommends Savings Plans over Reserved Instances for most use cases. Reduce costs by committing to a specific instance configuration (instance type, Region, tenancy, and platform) for a 1-year or 3-year term. Reserved Instances are not physical instances but a billing discount applied to matching On-Demand usage. Payment options are All Upfront, Partial Upfront, and No Upfront. Reserved Instances do not renew automatically. Two offering classes exist: Standard (larger discount, cannot be exchanged) and Convertible (smaller discount, can be exchanged for different instance attributes). AWS recommends Savings Plans over Reserved Instances. Request unused EC2 capacity at discounts of up to 90 percent compared to On-Demand prices. The Spot price is set by EC2 and adjusts gradually based on long-term supply and demand. Spot Instances can be interrupted by EC2 when capacity is needed, with a two-minute interruption notice provided. EC2 also emits a rebalance recommendation signal when an instance is at elevated risk of interruption. Recommended for flexible, interruption-tolerant workloads such as batch jobs, data analysis, and background processing. Spot Instances are not covered by",
+    "source": "ec2_pricing",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 8,
+    "text": "two-minute interruption notice provided. EC2 also emits a rebalance recommendation signal when an instance is at elevated risk of interruption. Recommended for flexible, interruption-tolerant workloads such as batch jobs, data analysis, and background processing. Spot Instances are not covered by Savings Plans. Pay for a physical EC2 server fully dedicated to one AWS account. Allows use of existing per-socket, per-core, or per-VM software licenses. Available On-Demand (hourly) or as part of Savings Plans. Pay by the hour for instances that run on single-tenant hardware. Hardware is not shared with other AWS accounts. Reserve compute capacity in a specific Availability Zone for any duration. Capacity Reservations count toward On-Demand Instance quotas even if unused. Steady-state production workloads: Use Savings Plans or Reserved Instances to reduce costs for predictable, long-running workloads. Variable or unpredictable workloads: Use On-Demand Instances for flexibility with no commitment. Fault-tolerant batch processing: Use Spot Instances to run cost-sensitive jobs that can tolerate interruption. Compliance and licensing requirements: Use Dedicated Hosts when software licenses are tied to physical hardware.",
+    "source": "ec2_pricing",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 9,
+    "text": "Dedicated Hosts when software licenses are tied to physical hardware.",
+    "source": "ec2_pricing",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 10,
+    "text": "AWS Identity and Access Management (IAM) is a web service that helps securely control access to AWS resources. IAM manages permissions that determine which AWS resources users can access. It controls who is authenticated (signed in) and authorized (has permissions) to use resources. IAM provides the infrastructure necessary to control authentication and authorization for AWS accounts. IAM, AWS IAM Identity Center, and AWS Security Token Service (AWS STS) are offered at no additional charge. Charges apply only when IAM users or temporary credentials are used to access other AWS services. When a human user or application sends a request to AWS, IAM matches the sign-in credentials to a principal an IAM user, IAM role, AWS STS federated user, or application trusted by the AWS account. IAM then evaluates applicable policies to determine whether to allow or deny the request. Evaluation logic follows these rules: all requests are implicitly denied by default; an explicit allow in an identity-based or resource-based policy overrides the default denial; an explicit deny in any policy overrides any allow. If a permissions boundary, AWS Organizations SCP, or session policy is present, all applicable policies must allow the request. IAM replicates data across multiple servers in AWS",
+    "source": "iam_overview",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 11,
+    "text": "overrides the default denial; an explicit deny in any policy overrides any allow. If a permissions boundary, AWS Organizations SCP, or session policy is present, all applicable policies must allow the request. IAM replicates data across multiple servers in AWS data centers to achieve high availability. Changes to IAM resources such as users, roles, and policies may take time to propagate. - Authentication: Matches sign-in credentials to trusted principals; supports IAM users, roles, and federated identities - Authorization: Evaluates JSON policies attached to identities or resources to allow or deny requests - Multi-Factor Authentication (MFA): AWS recommends MFA for all users to increase account security - IAM Identity Center: Centrally manage workforce access to multiple AWS accounts and applications - Federation: Supports SAML 2.0 and OpenID Connect (OIDC) to integrate external identity providers - AWS STS: Issues temporary security credentials used when assuming roles - Root user: Created automatically when an AWS account is established; has complete access to all services and resources; AWS strongly recommends not using root for everyday tasks - High availability: IAM data is replicated across multiple AWS data centers - IAM users: Identities within an AWS account with specific long-term credentials for a single person",
+    "source": "iam_overview",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 12,
+    "text": "services and resources; AWS strongly recommends not using root for everyday tasks - High availability: IAM data is replicated across multiple AWS data centers - IAM users: Identities within an AWS account with specific long-term credentials for a single person or application - IAM groups: Collections of IAM users; policies attached to a group apply to all members - IAM roles: Identities with specific permissions; not associated with a single person; assumed by anyone or any service that needs them; provide temporary credentials rather than long-term credentials Controlled access for team members: Create IAM users or use federated identities to give employees the permissions they need without sharing root credentials. Service-to-service access: Assign IAM roles to AWS services such as EC2 or Lambda so they can access other AWS resources without embedding static credentials. Cross-account access: Use IAM roles to allow principals in one AWS account to access resources in another AWS account. Compliance and auditing: Use IAM policies and AWS CloudTrail to enforce and record who accessed which resources and when.",
+    "source": "iam_overview",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 13,
+    "text": "AWS CloudTrail to enforce and record who accessed which resources and when.",
+    "source": "iam_overview",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 14,
+    "text": "A policy is an object in AWS that, when associated with an identity or resource, defines their permissions. AWS evaluates these policies when an IAM principal (user or role) makes a request. Permissions in the policies determine whether the request is allowed or denied. Most policies are stored in AWS as JSON documents. When a principal makes a request, AWS evaluates all applicable policies. The default result for any request is an implicit deny. An explicit allow in an identity-based or resource-based policy overrides this default. An explicit deny in any policy overrides any allow. If a permissions boundary, AWS Organizations SCP, or session policy is present, all of those policies must also allow the request. IAM policy evaluation uses an explicit deny model, meaning a single denied action causes the entire request to be denied. Policies define permissions by specifying: the actions allowed or denied, the resources those actions apply to, and any conditions under which the policy applies. IAM policies are written in the IAM JSON policy language. AWS supports seven types of policies: JSON policy documents attached to an IAM identity (user, group, or role). They control what actions the identity can perform, on which resources, and",
+    "source": "iam_policies",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 15,
+    "text": "IAM policies are written in the IAM JSON policy language. AWS supports seven types of policies: JSON policy documents attached to an IAM identity (user, group, or role). They control what actions the identity can perform, on which resources, and under what conditions. Divided into three subtypes: - AWS managed policies: Created and managed by AWS; can be attached to multiple identities; suitable for - Customer managed policies: Created and managed by the AWS account owner; provide more precise control than AWS managed policies; can be attached to multiple identities - Inline policies: Embedded directly into a single user, group, or role; maintain a strict one-to-one relationship with the identity; deleted when the identity is deleted JSON policy documents attached directly to a resource such as an S3 bucket or SQS queue. Grant specified principals permission to perform specific actions on that resource. Resource-based policies are inline policies; there are no managed resource-based policies. Used to enable cross-account access. A managed policy set as the maximum permissions an identity-based policy can grant to an IAM user or role. The boundary does not grant permissions on its own; it limits the permissions the identity-based policy can grant. AWS Organizations Service Control",
+    "source": "iam_policies",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 16,
+    "text": "managed policy set as the maximum permissions an identity-based policy can grant to an IAM user or role. The boundary does not grant permissions on its own; it limits the permissions the identity-based policy can grant. AWS Organizations Service Control Policies (SCPs) Define the maximum permissions for IAM users and roles within accounts in an AWS Organization or organizational unit. SCPs limit permissions but do not grant permissions. AWS Organizations Resource Control Policies (RCPs) Define the maximum permissions for resources within accounts in an AWS Organization. RCPs limit permissions that identity-based and resource-based policies can grant to resources. RCPs do not grant permissions. Access Control Lists (ACLs) Control which principals in other accounts can access a resource. ACLs are the only policy type that does not use the JSON policy document structure. ACLs are not the recommended approach for most access control use cases. Policies passed when programmatically assuming a role or federated user session. Limit the permissions of the session without granting additional permissions beyond what the role or user already has. - All policies are evaluated together; no single policy type takes standalone precedence - Explicit deny always overrides any allow, regardless of which policy contains it -",
+    "source": "iam_policies",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 17,
+    "text": "session without granting additional permissions beyond what the role or user already has. - All policies are evaluated together; no single policy type takes standalone precedence - Explicit deny always overrides any allow, regardless of which policy contains it - IAM stores most policies as JSON documents - AWS managed policies cannot be edited but can be attached to multiple identities - Customer managed policies can be created, edited, and versioned - Inline policies are useful for strict one-to-one permission relationships but are harder to manage at scale Granting least privilege access: Attach customer managed policies to users or roles with only the specific actions and resources needed. Reusable permissions: Attach AWS managed or customer managed policies to multiple users, groups, or roles without duplicating policy documents. Restricting permissions at the organizational level: Use SCPs in AWS Organizations to set a permission ceiling across multiple accounts. Cross-account resource access: Attach resource-based policies to resources like S3 buckets to allow principals from another AWS account to access them.",
+    "source": "iam_policies",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 18,
+    "text": "from another AWS account to access them.",
+    "source": "iam_policies",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 19,
+    "text": "URLs: IAM identities are the entities created in an AWS account to provide access to AWS resources for people and processes. IAM identities include IAM users, IAM groups, and IAM roles. Each identity can be associated with one or more policies that determine what actions it is authorized to perform, on which resources, and under what conditions. An IAM user is an identity within an AWS account that has specific permissions for a single person or application. IAM users have long-term credentials such as passwords (for console access) or access keys (for programmatic access). By default, a newly created IAM user has no permissions. AWS recommends using IAM users only for use cases that are not supported by federation, including workloads that cannot use IAM roles and tools that require long-term access keys. Root user: When an AWS account is created, it begins with a root user that has complete access to all services and resources. AWS strongly recommends not using the root user for everyday tasks. Use IAM users or roles instead. An IAM group is a collection of IAM users. Policies attached to a group apply to all users in that group. Groups simplify permission management for users",
+    "source": "iam_users_roles",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 20,
+    "text": "using the root user for everyday tasks. Use IAM users or roles instead. An IAM group is a collection of IAM users. Policies attached to a group apply to all users in that group. Groups simplify permission management for users who require the same level of access. An IAM role is an IAM identity within an AWS account that has specific permissions. Unlike an IAM user, a role is not associated with a single person. A role is intended to be assumable by anyone or any service that needs it. Roles do not have long-term credentials such as passwords or static access keys. Instead, assuming a role provides temporary security credentials for the duration of the session. A role has two types of policies attached: - Trust policy: A resource-based policy that defines which principals (accounts, users, roles, and AWS services) are trusted to assume the role. This is a required policy. - Permissions policy: An identity-based policy that defines what actions and resources the role can access after it is assumed. Roles can be assumed by IAM users, AWS services, federated users from external identity providers, and applications running outside of AWS. Federated identity: When OIDC or SAML 2.0",
+    "source": "iam_users_roles",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 21,
+    "text": "what actions and resources the role can access after it is assumed. Roles can be assumed by IAM users, AWS services, federated users from external identity providers, and applications running outside of AWS. Federated identity: When OIDC or SAML 2.0 is used to configure a trust relationship between an external identity provider and AWS, the user is assigned an IAM role and receives temporary credentials to access AWS resources. Service-linked roles: Roles predefined by AWS services that include all permissions required by the service. These cannot be deleted until the associated service resources are removed. Instance profiles: When an IAM role is used with an EC2 instance, EC2 uses an instance profile as a container for the role. When a role is created via the IAM console, an instance profile with the same name is automatically created. Key Differences: Users vs Roles IAM users have long-term static credentials and are tied to a specific person or application. IAM roles provide temporary credentials, are not tied to a specific person, and are the recommended approach for granting access to AWS services, cross-account scenarios, and federated identities. Human workforce access: Use IAM users with MFA for individuals who require AWS console or",
+    "source": "iam_users_roles",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 22,
+    "text": "temporary credentials, are not tied to a specific person, and are the recommended approach for granting access to AWS services, cross-account scenarios, and federated identities. Human workforce access: Use IAM users with MFA for individuals who require AWS console or API access, or prefer federation via IAM Identity Center. AWS service access: Attach IAM roles to services such as EC2, Lambda, or ECS so they can access other AWS resources without embedding static credentials. Cross-account access: Create a role in the trusting account and define a trust policy that allows principals from a trusted account to assume it. Federated access: Assign roles to users authenticated by an external identity provider, granting them temporary credentials.",
+    "source": "iam_users_roles",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 23,
+    "text": "A bucket is a container for objects stored in Amazon S3. An object is a file and any metadata that describes that file. Every object in Amazon S3 must be stored inside a bucket. To store data in Amazon S3, a bucket must be created first, after which objects can be uploaded into it. To upload data to Amazon S3, a bucket must be created in one of the AWS Regions. The AWS account that creates a bucket owns it. After creation, the bucket name and Region cannot be changed. Each object stored in a bucket is addressable via a unique URL in the format: Buckets and objects are AWS resources managed through the Amazon S3 API or the AWS Management Console. Objects stored in a bucket remain in the selected Region unless explicitly transferred to another Region. Bucket names must be globally unique across all AWS accounts within a partition. AWS currently has three partitions: aws (Standard Regions), aws-cn (China Regions), and aws-us-gov (AWS GovCloud). Once a bucket is created, its name is unavailable to any other account in the same partition until the bucket is deleted. - Bucket names must be between 3 and 63 characters, consist only",
+    "source": "s3_buckets",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 24,
+    "text": "(China Regions), and aws-us-gov (AWS GovCloud). Once a bucket is created, its name is unavailable to any other account in the same partition until the bucket is deleted. - Bucket names must be between 3 and 63 characters, consist only of lowercase letters, numbers, hyphens, and periods - Default quota is 10,000 general purpose buckets per AWS account; increases can be requested via Service Quotas - Unlimited number of objects can be stored within a single bucket - Block Public Access is enabled by default at the bucket level - S3 Object Ownership is set to Bucket owner enforced by default; ACLs are disabled by default - S3 Object Lock supports write-once-read-many (WORM) storage to prevent object deletion or overwrite - Versioning can be enabled to preserve and restore every version of an object - MFA Delete requires two forms of authentication to delete objects in enabled buckets - Bucket policies use IAM-based policy language to define resource-level access controls - Server access logging records detailed request records for auditing and monitoring Organized data separation: Separate buckets are used for different datasets, environments, or workloads within the same AWS account. Region-specific storage: Buckets are created in geographically close Regions to",
+    "source": "s3_buckets",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 25,
+    "text": "- Server access logging records detailed request records for auditing and monitoring Organized data separation: Separate buckets are used for different datasets, environments, or workloads within the same AWS account. Region-specific storage: Buckets are created in geographically close Regions to minimize latency and meet data residency or regulatory requirements. Access-controlled data storage: Bucket policies and IAM roles are used to enforce fine-grained access controls for users and services. Versioned storage: Versioning is enabled on buckets to protect against accidental deletions and support recovery from application failures. Compliance and audit: Object Lock and server access logging are configured on buckets to meet regulatory and audit requirements.",
+    "source": "s3_buckets",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 26,
+    "text": "Amazon Simple Storage Service (Amazon S3) is an object storage service that provides scalable storage over the internet. It is designed to store and retrieve any amount of data from anywhere at any time. Data is stored as objects within containers called buckets. Users create a bucket in a selected AWS region. Each object stored in a bucket consists of the data itself, a unique key (identifier), and metadata. Objects can range in size from a few bytes up to 5 terabytes. S3 does not use a traditional file system hierarchy; instead, it uses a flat structure where each object is accessed via a unique URL or API call. Access is managed through bucket policies, access control lists (ACLs), and AWS Identity and Access Management (IAM) roles. - Virtually unlimited storage capacity with no minimum commitment - High durability: S3 is designed for 99.999999999 percent (11 nines) durability by redundantly storing data across multiple facilities - Multiple storage classes available to balance cost and access frequency (Standard, Intelligent-Tiering, Glacier, etc.) - Versioning support to retain multiple versions of an object - Server-side and client-side encryption options for data security - Lifecycle policies to automate transitions between storage classes or object",
+    "source": "s3_overview",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 27,
+    "text": "to balance cost and access frequency (Standard, Intelligent-Tiering, Glacier, etc.) - Versioning support to retain multiple versions of an object - Server-side and client-side encryption options for data security - Lifecycle policies to automate transitions between storage classes or object deletion - Event notifications to trigger workflows when objects are created or modified - Cross-region replication for geographic redundancy Backup and disaster recovery: Organizations store critical data backups that can be retrieved reliably when needed. Static website hosting: S3 can serve static HTML, CSS, and JavaScript files directly to end users. Data archiving: Infrequently accessed data can be moved to lower-cost storage classes like S3 Glacier. Data lake storage: S3 acts as a central repository for structured and unstructured data used in analytics pipelines. Application asset storage: Applications store user-generated content such as images, videos, and documents in S3 and serve them via URLs. Log storage: Services and applications write log files directly to S3 for later analysis or auditing.",
+    "source": "s3_overview",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 28,
+    "text": "Amazon S3 storage classes are a range of storage options for objects stored in S3. Each object in Amazon S3 has a storage class associated with it. The storage class is chosen based on use case, access frequency, performance requirements, and cost targets. All storage classes offer high durability. When uploading an object, a storage class is either specified explicitly or S3 assigns S3 Standard by default. The storage class can be changed after upload using the Amazon S3 console, AWS SDKs, or the AWS CLI. S3 Lifecycle configurations can automate transitions between storage classes over time. Amazon S3 supports a waterfall model for lifecycle transitions, meaning objects can only move to lower-cost classes in a defined sequence, not in reverse. Objects cannot be transitioned back from S3 Glacier Flexible Retrieval or S3 Glacier Deep Archive to higher-performance classes using lifecycle rules alone. Retrieval from archival classes requires a restore request before the object is accessible. The default storage class for frequently accessed data. Assigned automatically if no class is specified at upload. Designed for performance-sensitive use cases requiring millisecond access. High-performance, single Availability Zone storage. Delivers single-digit millisecond access speeds up to 10x faster than S3 Standard. Request costs",
+    "source": "s3_storage_classes",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 29,
+    "text": "for frequently accessed data. Assigned automatically if no class is specified at upload. Designed for performance-sensitive use cases requiring millisecond access. High-performance, single Availability Zone storage. Delivers single-digit millisecond access speeds up to 10x faster than S3 Standard. Request costs are 50 percent lower than S3 Standard. Data is stored redundantly on multiple devices within one Availability Zone. Designed for data with unknown or changing access patterns. Automatically moves objects between access tiers based on access frequency. No retrieval fees apply. Charges a small monthly monitoring and automation fee per object. Objects under 128 KB are not monitored and remain in the Frequent Access tier. Access tiers within S3 Intelligent-Tiering: - Frequent Access: default tier for newly uploaded or transitioned objects - Infrequent Access: objects not accessed for 30 consecutive days are moved here - Archive Instant Access: objects not accessed for 90 consecutive days are moved here automatically - Archive Access (optional): activated manually; archives objects after a minimum of 90 days without access; retrieval time ranges from 3 to 5 hours - Deep Archive Access (optional): activated manually; archives objects after 180 days without access S3 Standard-IA (Infrequent Access) For infrequently accessed data that still requires millisecond retrieval.",
+    "source": "s3_storage_classes",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 30,
+    "text": "of 90 days without access; retrieval time ranges from 3 to 5 hours - Deep Archive Access (optional): activated manually; archives objects after 180 days without access S3 Standard-IA (Infrequent Access) For infrequently accessed data that still requires millisecond retrieval. Lower storage cost than S3 Standard but includes retrieval fees. Stores data in a single Availability Zone. Lower cost than S3 Standard-IA. Not resilient to the loss of an Availability Zone. For long-term archive data accessed approximately once per quarter. Provides millisecond retrieval. Minimum object size of 128 KB. Minimum storage duration of 90 days. For archive data accessed one to two times per year with no requirement for immediate access. Retrieval times range from minutes to hours. Free bulk retrievals available. Minimum storage duration of 90 days. Objects are archived and not available for real-time access. Lowest-cost storage class. Designed for data retained for 7 to 10 years or longer. Default retrieval time is 12 hours. Minimum storage duration of 180 days. Frequent production data: S3 Standard or S3 Express One Zone for applications requiring fast, consistent access. Unpredictable access patterns: S3 Intelligent-Tiering to automatically optimize costs without manual intervention. Infrequent but fast retrieval: S3 Standard-IA or S3 Glacier",
+    "source": "s3_storage_classes",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 31,
+    "text": "of 180 days. Frequent production data: S3 Standard or S3 Express One Zone for applications requiring fast, consistent access. Unpredictable access patterns: S3 Intelligent-Tiering to automatically optimize costs without manual intervention. Infrequent but fast retrieval: S3 Standard-IA or S3 Glacier Instant Retrieval for data accessed occasionally but still requiring low-latency access. Backup and disaster recovery: S3 Glacier Flexible Retrieval for archival backups where retrieval within minutes to hours is acceptable. Long-term compliance archiving: S3 Glacier Deep Archive for data that must be retained for years and rarely if ever retrieved.",
+    "source": "s3_storage_classes",
+    "doc_type": "aws_docs"
+  },
+  {
+    "chunk_id": 32,
+    "text": "This document outlines the procedure for requesting, approving, and revoking access to company systems, tools, and data environments. All access requests must be submitted through the IT portal. Requests submitted via email or direct message to IT staff will not be processed. Each request must specify the system or resource, the level of access required, the business justification, and the expected duration if the access is temporary. Access is granted on the principle of least privilege. Employees will be given only the minimum level of access needed to perform their job function. Requests for elevated permissions such as admin or write access to production systems require additional justification and are subject to a secondary approval from the department head. Standard access requests are reviewed and fulfilled within 2 business days. Requests for production or sensitive system access may take up to 5 business days due to the additional approval steps. Urgent access needs may be escalated to IT leadership with manager sign-off, but urgency does not bypass the approval process. Temporary access must include an expiry date. IT will automatically revoke access on the stated date without further notification. If continued access is needed, a new request must be submitted",
+    "source": "access_request_process",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 33,
+    "text": "manager sign-off, but urgency does not bypass the approval process. Temporary access must include an expiry date. IT will automatically revoke access on the stated date without further notification. If continued access is needed, a new request must be submitted before expiry. Access must be reviewed when an employee changes roles internally. The previous access profile must be revoked within 5 business days of the role change taking effect. Managers are responsible for initiating this review. When an employee leaves the company, the manager must notify HR and IT on the last working day. All system access will be revoked within 4 hours of the departure being confirmed. Failure to report a departure promptly is a policy violation.",
+    "source": "access_request_process",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 34,
+    "text": "This document defines the standards all engineers must follow when designing and building internal and external APIs. All APIs must follow REST principles. Endpoints must use noun-based resource naming in lowercase with hyphens as separators. Verbs must not appear in endpoint paths. HTTP methods must be used semantically: GET for retrieval, POST for creation, PUT for full replacement, PATCH for partial update, and DELETE for removal. All API responses must return JSON. Response structures must be consistent across endpoints, with a data field for successful responses and an error field containing a code and message for failures. HTTP status codes must accurately reflect the outcome of the request. Using 200 for error responses is not permitted. All endpoints must be versioned using a URL path prefix such as v1 or v2. Breaking changes must result in a new version. Deprecation of an existing version requires a minimum 90-day notice communicated in the internal changelog and to all known consumers. Authentication is required for all non-public endpoints. OAuth 2.0 with bearer tokens is the standard authentication method. API keys may be used for internal service-to-service communication and must be rotated every 180 days. Every API must have complete documentation generated from",
+    "source": "api_development_standards",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 35,
+    "text": "is required for all non-public endpoints. OAuth 2.0 with bearer tokens is the standard authentication method. API keys may be used for internal service-to-service communication and must be rotated every 180 days. Every API must have complete documentation generated from the codebase using the approved specification format. Documentation must include endpoint descriptions, required and optional parameters, example request and response payloads, and error codes. Documentation must be updated as part of the same pull request that introduces the API change. Rate limiting must be applied to all public-facing endpoints. Limits and retry guidance must be communicated through response headers. Input validation must be performed on all request parameters before any processing occurs.",
+    "source": "api_development_standards",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 36,
+    "text": "This document defines the standards and expectations for conducting code reviews across all engineering teams. Every code change must be reviewed before merging. Pull requests require a minimum of two approvals from engineers other than the author. At least one reviewer must have familiarity with the part of the codebase being modified. Self-merging without the required approvals is not permitted under any circumstances. Reviewers are expected to respond to a pull request within one business day. If a reviewer cannot complete a review within that time, they must reassign it or notify the author. Authors must address all comments before requesting re-review. Resolving a comment without making a change requires a written justification in the thread. Reviews must evaluate correctness, readability, test coverage, and alignment with existing code standards. Reviewers should check that error handling is explicit, that sensitive data is not logged, and that no hardcoded credentials are present. Performance implications should be flagged but do not block approval unless the impact is significant and measurable. Feedback must be professional and specific. General statements such as this is wrong or rewrite this are not acceptable. Every requested change must include a reason or a suggested alternative. Tone should be",
+    "source": "code_review_guidelines",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 37,
+    "text": "unless the impact is significant and measurable. Feedback must be professional and specific. General statements such as this is wrong or rewrite this are not acceptable. Every requested change must include a reason or a suggested alternative. Tone should be objective and focused on the code, not the author. Pull request descriptions must include what the change does, why it is being made, and how it was tested. Screenshots or log output should be included for UI changes or non-trivial behavior changes. Approved pull requests must be merged by the author, not the reviewer. Branches must be deleted after merging. Stale pull requests open for more than 7 days without activity will be flagged for closure by the team lead.",
+    "source": "code_review_guidelines",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 38,
+    "text": "This document describes the steps required to deploy application changes to staging and production environments. It applies to all backend, frontend, and infrastructure changes. All deployments must originate from a versioned release branch in the main repository. No direct commits to the main or production branch are permitted. Hotfixes are the only exception and must follow the hotfix procedure documented separately. Before a deployment can proceed, the following conditions must be met. The pull request must have been reviewed and approved by at least two engineers. All automated tests in the CI pipeline must pass. The release branch must be synchronized with the latest changes from the main branch. A deployment ticket must be open and linked to the release. Deployments to the staging environment can be initiated by any engineer with deployment access. Staging deployments run automatically via the CI pipeline on merge to the staging branch. Engineers are responsible for verifying behavior in staging before requesting a production deployment. Production deployments require approval from the team lead or release manager. The deployment window for production is Tuesday to Thursday between 10:00 AM and 3:00 PM. Deployments outside this window require written approval from the engineering manager and must",
+    "source": "deployment_process",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 39,
+    "text": "deployment. Production deployments require approval from the team lead or release manager. The deployment window for production is Tuesday to Thursday between 10:00 AM and 3:00 PM. Deployments outside this window require written approval from the engineering manager and must be logged as exceptions. After a production deployment, the deploying engineer must monitor application logs and error tracking dashboards for a minimum of 30 minutes. If anomalies are detected, the rollback procedure must be initiated immediately without waiting for impact confirmation. All deployments, including rollbacks, must be recorded in the deployment log with the engineer name, timestamp, release version, and any post-deployment observations.",
+    "source": "deployment_process",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 40,
+    "text": "This document defines how incidents affecting production systems are identified, escalated, managed, and resolved. It applies to all engineering and operations staff. An incident is any unplanned event that causes or risks causing a degradation or outage of a production service. Incidents are classified into three severity levels. Severity 1 is a complete service outage or data loss affecting all or most users. Severity 2 is a significant degradation affecting a subset of users or a critical feature. Severity 3 is a minor issue with limited user impact or a workaround available. When an incident is detected, the person who identifies it must immediately create an incident ticket in the tracking system, set the severity level, and notify the on-call engineer via the alerting channel. For Severity 1 incidents, the engineering manager and product lead must also be notified within 10 minutes. The on-call engineer assumes the role of incident commander and is responsible for coordinating the response. A dedicated incident channel must be created for Severity 1 and Severity 2 incidents. All investigation and communication must happen in that channel to maintain a clear record. The incident commander assigns tasks, provides status updates every 30 minutes to stakeholders for",
+    "source": "incident_management_process",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 41,
+    "text": "incident channel must be created for Severity 1 and Severity 2 incidents. All investigation and communication must happen in that channel to maintain a clear record. The incident commander assigns tasks, provides status updates every 30 minutes to stakeholders for Severity 1, and ensures a resolution path is active at all times. Engineers not assigned a task must not act independently unless directed by the incident commander. Once resolved, the incident ticket must be updated with the resolution steps and marked closed. A post-incident review is mandatory for all Severity 1 incidents and must be completed within 3 business days. The review must identify the root cause, contributing factors, and action items with owners and due dates.",
+    "source": "incident_management_process",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 42,
+    "text": "This document defines how employees should report technical issues, bugs, and operational problems that affect systems, tools, or workflows. All issues must be logged in the issue tracking system. Issues reported verbally, via messaging channels, or by email without a corresponding ticket are not considered formally reported and will not be assigned for resolution. Every issue ticket must include a clear description of the problem, the steps taken to reproduce it, the environment or system affected, the observed and expected behavior, and the impact on work. Issues are categorized by type: system outage, performance degradation, data error, access failure, or general bug. Categorization must be applied at the time of submission and determines the routing of the ticket. Misclassified tickets will be re-routed but may experience delays. Priority levels are assigned by the team lead or support manager after initial review. Employees should not set their own priority to urgent unless the issue is causing a complete work stoppage for multiple people. Inflating priority without justification will result in the ticket being downgraded. Once submitted, the reporter is responsible for responding to clarifying questions within one business day. Tickets that receive no response within 3 business days will be placed",
+    "source": "issue_reporting",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 43,
+    "text": "multiple people. Inflating priority without justification will result in the ticket being downgraded. Once submitted, the reporter is responsible for responding to clarifying questions within one business day. Tickets that receive no response within 3 business days will be placed on hold. Tickets on hold for more than 5 business days will be closed. Duplicate tickets will be merged with the original. Reporters will be linked to the primary ticket and will receive updates there. Submitting multiple tickets for the same issue does not increase resolution priority. After an issue is resolved, reporters should confirm the fix within 2 business days. Resolved tickets will be closed automatically after 3 business days if no response is received.",
+    "source": "issue_reporting",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 44,
+    "text": "This document defines the rules and procedures for requesting and approving employee leave. It applies to all full-time and part-time employees. Employees are entitled to 20 days of paid annual leave per calendar year. Leave accrues monthly at 1.67 days per month and does not carry over beyond 5 unused days into the next calendar year. Any unused days above that threshold are forfeited at year-end. Sick leave is provided separately at 10 days per year. Sick leave does not accrue and does not carry over. A medical certificate is required for any sick leave exceeding 3 consecutive days. To request leave, an employee must submit a leave request through the HR portal at least 5 business days in advance for planned leave. Emergency or unplanned leave must be reported to the direct manager by 9:00 AM on the day of absence, followed by a formal HR portal submission upon return. Leave requests require manager approval. Managers must respond within 2 business days. Approval may be declined if the requested period conflicts with a critical project deadline, a team coverage minimum, or a previously approved leave from another team member in the same function. Unpaid leave may be granted at",
+    "source": "leave_policy",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 45,
+    "text": "2 business days. Approval may be declined if the requested period conflicts with a critical project deadline, a team coverage minimum, or a previously approved leave from another team member in the same function. Unpaid leave may be granted at manager and HR discretion for personal circumstances not covered by standard entitlements. Requests must be submitted in writing with a stated reason and expected duration. Public holidays are separate from annual leave and are not deducted from the employee leave balance. Employees required to work on a public holiday are entitled to a compensatory day off to be taken within 30 days. Leave records are maintained in the HR system and are accessible to both the employee and their direct manager at any time.",
+    "source": "leave_policy",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 46,
+    "text": "This document describes the steps taken to integrate a new employee into the company during their first 30 days. It applies to all full-time hires across all departments. Before the employee's start date, the hiring manager must submit a system access request for all required tools and platforms through the IT portal. Equipment must be ordered at least 5 business days before the start date. A buddy must be assigned from within the team to provide informal guidance during the first two weeks. On the first day, IT will provide the employee with their device, credentials, and access to core systems. The HR team will conduct a 90-minute session covering company policies, benefits, and compliance requirements. The employee must complete mandatory compliance training modules by the end of week one. During week one, the hiring manager is responsible for conducting a team introduction meeting, providing an of the team's scope, current priorities, and ways of working. The manager must also schedule recurring one-on-one meetings and clarify the performance expectations for the first 90 days. By the end of week two, the employee must have read-only access to the primary codebase or operational systems relevant to their role, with full working",
+    "source": "onboarding_process",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 47,
+    "text": "schedule recurring one-on-one meetings and clarify the performance expectations for the first 90 days. By the end of week two, the employee must have read-only access to the primary codebase or operational systems relevant to their role, with full working access granted once the manager confirms readiness. The buddy is responsible for answering day-to-day questions and introducing the employee to relevant colleagues. At the end of week four, the hiring manager must conduct a formal check-in to review progress against onboarding goals, address any blockers, and confirm that outstanding access or tooling gaps are resolved. A brief written summary of this check-in must be filed in the HR system.",
+    "source": "onboarding_process",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 48,
+    "text": "This document defines the end-to-end process for planning, preparing, and executing a software release. It applies to all product and platform teams. A release cycle begins with a planning meeting held at the start of each sprint or milestone period. During this meeting, the team confirms the scope of the release, identifies dependencies, and flags any risks. A release lead is assigned for each release and is responsible for coordinating the process from planning to post-release confirmation. Once development is complete, the release lead creates a release candidate branch from the main branch and opens a release tracking ticket. This ticket must list all included changes, the target release date, the deployment window, the rollback plan, and the names of the engineers responsible for deployment. A release candidate must be deployed to the staging environment and undergo a minimum of one full regression test cycle before production deployment is considered. Results of the regression test must be documented in the release ticket. Any blocker issues found in staging must be resolved before the release proceeds. Non-blocker issues must be documented and accepted in writing by the product lead. The production deployment follows the deployment process defined in the deployment policy.",
+    "source": "release_process",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 49,
+    "text": "release ticket. Any blocker issues found in staging must be resolved before the release proceeds. Non-blocker issues must be documented and accepted in writing by the product lead. The production deployment follows the deployment process defined in the deployment policy. After deployment, the release lead must verify that all included features and fixes are functioning as expected in production before closing the release ticket. A release summary must be posted in the internal changelog within one business day of a successful release. The summary must include the release version, the date, a brief description of changes, and a link to the full change log. Releases that are rolled back must have a separate incident ticket opened immediately and a post-mortem completed within 3 business days.",
+    "source": "release_process",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 50,
+    "text": "This document outlines the rules and expectations for employees working remotely on a full-time, hybrid, or occasional basis. Hybrid employees are required to be present in the office a minimum of 3 days per week. The specific days must be agreed with the direct manager and kept consistent unless operationally adjusted. Office attendance is mandatory on days when all-hands meetings, onboarding sessions, or client visits are scheduled. Employees working remotely must maintain the same availability and responsiveness as they would in the office. This includes being reachable via the designated communication platform during core hours of 10:00 AM to 4:00 PM and joining scheduled video calls with camera enabled unless a valid exception is communicated in advance. All remote work must be performed from a secure location. Employees must not work from public Wi-Fi without an active VPN connection. Company devices must be used for all work-related tasks. Use of personal devices to access company systems remotely is permitted only through the approved virtual desktop environment. Employees are responsible for maintaining a suitable and distraction-free work environment. The company does not provide home office equipment beyond what is issued at the time of hire. A one-time remote work setup allowance",
+    "source": "remote_work_policy",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 51,
+    "text": "through the approved virtual desktop environment. Employees are responsible for maintaining a suitable and distraction-free work environment. The company does not provide home office equipment beyond what is issued at the time of hire. A one-time remote work setup allowance is available to eligible employees, subject to manager and finance approval. Remote work is not a substitute for personal leave. Employees who are unwell should take sick leave rather than work remotely. Remote work privileges may be suspended if the employee consistently fails to meet performance expectations, communication standards, or security requirements. Any suspension will be communicated in writing by the manager with a stated review period.",
+    "source": "remote_work_policy",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 52,
+    "text": "This document defines the mandatory security practices that all employees must follow to protect company systems, data, and infrastructure. All employees must use strong passwords of at least 14 characters, combining uppercase and lowercase letters, numbers, and symbols. Passwords must not be reused across systems and must be changed every 90 days. A password manager approved by the IT department must be used to store credentials. Multi-factor authentication is mandatory for all accounts that access company systems, including email, cloud infrastructure, internal tools, and third-party services where supported. Requests to disable MFA will not be approved. Company devices must have full disk encryption enabled at all times. Employees must lock their screen whenever leaving their workstation unattended. Devices must not be left unattended in public spaces. Sensitive data must not be stored on personal devices, personal cloud storage, or any system not managed by IT. Data classified as confidential or restricted must be handled only within approved internal systems and must not be transmitted via personal email or consumer messaging apps. Employees must not install unapproved software on company devices. All software installations require a request through the IT portal. Unauthorized software may be removed without notice. Phishing or suspicious",
+    "source": "security_policy",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 53,
+    "text": "must not be transmitted via personal email or consumer messaging apps. Employees must not install unapproved software on company devices. All software installations require a request through the IT portal. Unauthorized software may be removed without notice. Phishing or suspicious emails must be reported to the security team immediately using the designated reporting tool and must not be forwarded, clicked, or replied to. Any suspected security incident, including lost or stolen devices, must be reported to IT within one hour of discovery. Failure to comply with this policy may result in disciplinary action, including revocation of system access.",
+    "source": "security_policy",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 54,
+    "text": "This document describes the standard toolset available to employees and the process for managing access to those tools. All employees are provisioned with a standard set of tools on their first day, including the company email platform, internal communication tool, project management system, document collaboration suite, and VPN client. Access to these tools is configured automatically based on the employee's department and role profile. No separate request is needed for standard toolset provisioning. Role-specific tools such as the source code repository, CI/CD pipeline, cloud infrastructure consoles, data platforms, and monitoring dashboards are provisioned separately. Access to these tools requires a request submitted through the IT portal with manager approval. The assigned access level is determined by job function and follows the principle of least privilege. Employees must use only company-approved tools for work-related tasks. Using personal accounts or consumer versions of productivity software to store, share, or process work data is not permitted. A current list of approved tools is maintained in the internal IT knowledge base and is updated quarterly. Tool licenses are monitored and reviewed every 6 months. Unused licenses may be revoked without prior notice. Employees who require a tool that is not on the approved list",
+    "source": "tools_and_access",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 55,
+    "text": "maintained in the internal IT knowledge base and is updated quarterly. Tool licenses are monitored and reviewed every 6 months. Unused licenses may be revoked without prior notice. Employees who require a tool that is not on the approved list must submit a software request through the IT portal, including a business justification and estimated cost. Procurement decisions are made by IT in coordination with the relevant department head. Shared credentials or team accounts for any tool are not permitted. Each employee must have their own individual account. If a tool does not support individual accounts, the IT team must be consulted before use. When an employee leaves or changes roles, all tool access is reviewed and adjusted as part of the standard offboarding or role transition process.",
+    "source": "tools_and_access",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 56,
+    "text": "This document defines the standard working hours, attendance expectations, and overtime guidelines for all employees. Standard working hours are 9:00 AM to 6:00 PM, Monday through Friday, with a one-hour unpaid lunch break, resulting in an 8-hour working day and a 40-hour working week. Core hours, during which all employees are expected to be available for meetings and collaboration, are 10:00 AM to 4:00 PM. Flexible start and end times are permitted within a window of 8:00 AM to 7:00 PM, provided the employee completes 8 hours per day and is available during core hours. Flexible arrangements must be agreed upon with the direct manager and documented in the HR system. Attendance is tracked through the time-tracking system. Employees are responsible for logging their hours accurately on a daily basis. Timesheets must be submitted by end of day each Friday for the current week. Overtime is defined as any hours worked beyond 40 per week. Overtime must be pre-approved by the direct manager. Approved overtime is compensated either as additional pay at 1.5 times the standard hourly rate or as equivalent time off in lieu, to be taken within the same calendar month. Unapproved overtime will not be compensated. Repeated",
+    "source": "work_hours_policy",
+    "doc_type": "internal_docs"
+  },
+  {
+    "chunk_id": 57,
+    "text": "the direct manager. Approved overtime is compensated either as additional pay at 1.5 times the standard hourly rate or as equivalent time off in lieu, to be taken within the same calendar month. Unapproved overtime will not be compensated. Repeated instances of unapproved overtime may be reviewed as a performance or workload management issue. Punctuality is expected. Three or more unexcused late arrivals within a calendar month will be flagged by the manager and recorded in the employee's HR file. Employees who anticipate being late must notify their manager in advance. Any changes to working hours arrangements must be reviewed and reconfirmed at each performance cycle.",
+    "source": "work_hours_policy",
+    "doc_type": "internal_docs"
+  }
+]

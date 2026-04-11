@@ -1,0 +1,13 @@
+MODEL_NAME = "BAAI/bge-base-en-v1.5"
+CROSS_ENCODER = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+TOP_K_RETRIEVE = 50
+TOP_K_RERANK = 20
+TOP_K_FINAL = 5
+
+ALPHA = 0.5
+
+CHUNK_SIZE = 200
+CHUNK_OVERLAP = 40
+
+DATA_PATH = "data/"
