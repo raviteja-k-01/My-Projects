@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Large/private runtime files
+data/input_videos/**
+!data/input_videos/.gitkeep
+outputs/csv/**
+outputs/videos/**
+outputs/logs/**
+!outputs/csv/.gitkeep
+!outputs/videos/.gitkeep
+!outputs/logs/.gitkeep
+
+# Trained model binaries (store externally or with Git LFS)
+*.pt
+*.pth
+*.onnx
+*.engine
+*.weights
+
+# Local databases, dumps, and backups
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.dump
+*.sql.gz
+
+# Local editor/system files
+.vscode/
+.idea/
+.vs/
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.temp
+.codex_tmp/
+# Streamlit
+.streamlit/secrets.toml
+outputs/ultralytics/
