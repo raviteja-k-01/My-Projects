@@ -1,0 +1,11 @@
+dev/
+__pycache__/
+*.pyc
+.env
+# Generated RAG data and local indexes
+data/processed/
+data/bm25/
+data/qdrant/
+data/qdrant_validation/
+
+scripts/_scratch/
