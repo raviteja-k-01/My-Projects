@@ -2,7 +2,7 @@
 
 A production-style Retrieval-Augmented Generation (RAG) application for answering questions from enterprise policy documents with grounded responses and source citations.
 
-I built this project to understand and implement a complete RAG pipeline rather than relying on an end-to-end framework abstraction. The system handles document ingestion, hybrid retrieval, context construction, answer generation, citations, API serving, containerization, and cloud deployment.
+I built this project to understand and implement a complete RAG pipeline. The system handles document ingestion, hybrid retrieval, context construction, answer generation, citations, API serving, containerization, and cloud deployment.
 
 ## What the project does
 
@@ -20,7 +20,7 @@ The system retrieves the relevant evidence, generates an answer only from that e
 Enterprise PDFs
       │
       ▼
-PDF + Table Extraction
+Text + Table Extraction
       │
       ▼
 Structure Parsing & Normalization
