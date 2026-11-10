@@ -1,0 +1,27 @@
+# ignore python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# notebook checkpoints
+.ipynb_checkpoints/
+
+# system / editor stuff
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# temp or backup files
+*.bak
+*.tmp
+*.log
+
+# data and model files
+# keeping these for now, comment out if needed
+# data/*.xlsx
+# model/*.pkl
+
+# screenshots (keeping visible for readme)
+# screenshots/*.png
