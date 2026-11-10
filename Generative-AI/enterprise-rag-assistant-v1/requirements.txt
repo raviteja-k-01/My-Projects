@@ -1,0 +1,11 @@
+pymupdf==1.28.2
+google-genai
+qdrant-client
+bm25s
+python-dotenv
+langchain-google-genai==4.3.2
+fastapi
+uvicorn[standard]
+streamlit
+requests
+pytest
