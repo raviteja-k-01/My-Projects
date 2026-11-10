@@ -1,0 +1,122 @@
+[
+  {
+    "question": "How many days of annual leave are employees entitled to?",
+    "ground_truth": "Employees are entitled to annual leave as defined in the Leave and Attendance Policy based on company-defined entitlement structure and tenure.",
+    "expected_sources": ["leave_attendence_policy"],
+    "type": "policy_rule",
+    "difficulty": "easy",
+    "keywords": ["annual leave", "entitlement"]
+  },
+  {
+    "question": "What is the hotel limit for Band 3 employees?",
+    "ground_truth": "Band 1–3 employees are entitled to hotel accommodation up to ₹5,500 per night.",
+    "expected_sources": ["travel_and_expenses_policy"],
+    "type": "fact",
+    "difficulty": "easy",
+    "keywords": ["₹5,500", "Band 1–3", "hotel"]
+  },
+  {
+    "question": "What is the hotel limit for Band 5 employees?",
+    "ground_truth": "Band 4–5 employees are entitled to hotel accommodation up to ₹8,000 per night.",
+    "expected_sources": ["travel_and_expenses_policy"],
+    "type": "fact",
+    "difficulty": "easy",
+    "keywords": ["₹8,000", "Band 4–5"]
+  },
+  {
+    "question": "Is travel pre-approval required before booking?",
+    "ground_truth": "Yes, all business travel must be pre-authorised before any booking is made according to the Travel and Expenses Policy.",
+    "expected_sources": ["travel_and_expenses_policy"],
+    "type": "policy_rule",
+    "difficulty": "easy",
+    "keywords": ["pre-authorisation", "required"]
+  },
+  {
+    "question": "What is the probationary period for new employees?",
+    "ground_truth": "New employees undergo a probation period of six months from the date of joining unless otherwise specified in employment terms.",
+    "expected_sources": ["employee_handbook"],
+    "type": "fact",
+    "difficulty": "medium",
+    "keywords": ["probation", "six months"]
+  },
+  {
+    "question": "What happens if background verification shows discrepancies?",
+    "ground_truth": "Material discrepancies such as falsified qualifications may result in offer withdrawal or non-confirmation after review by HR and Legal.",
+    "expected_sources": ["onboarding"],
+    "type": "policy_rule",
+    "difficulty": "medium",
+    "keywords": ["BGV", "discrepancy", "non-confirmation"]
+  },
+  {
+    "question": "How are performance reviews conducted in the company?",
+    "ground_truth": "Performance reviews follow an annual cycle including goal setting, mid-year review, self-assessment, manager assessment, calibration, and appraisal discussion.",
+    "expected_sources": ["performance_management_policy"],
+    "type": "process",
+    "difficulty": "medium",
+    "keywords": ["annual cycle", "calibration", "review"]
+  },
+  {
+    "question": "When does the performance cycle start and end?",
+    "ground_truth": "The performance management cycle runs from 01 April to 31 March each year.",
+    "expected_sources": ["performance_management_policy"],
+    "type": "fact",
+    "difficulty": "easy",
+    "keywords": ["April", "March", "cycle"]
+  },
+  {
+    "question": "What are the rules for handling confidential customer data?",
+    "ground_truth": "Confidential customer data must be accessed only by authorized personnel and handled in compliance with the Data Privacy Policy and applicable data protection standards.",
+    "expected_sources": ["data_privacy_policy"],
+    "type": "policy_rule",
+    "difficulty": "medium",
+    "keywords": ["confidential data", "authorized access"]
+  },
+  {
+    "question": "Are employees allowed to use personal devices for work?",
+    "ground_truth": "Personal device usage is governed by the IT Security Policy and must comply with security requirements and acceptable use standards.",
+    "expected_sources": ["it_security_policy"],
+    "type": "policy_rule",
+    "difficulty": "medium",
+    "keywords": ["personal device", "IT security"]
+  },
+  {
+    "question": "What expenses are not allowed in expense claims?",
+    "ground_truth": "Personal expenses, inaccurate claims, or expenses not incurred for business purposes are not reimbursable and may be considered policy violations.",
+    "expected_sources": ["travel_and_expenses_policy"],
+    "type": "policy_rule",
+    "difficulty": "medium",
+    "keywords": ["non-reimbursable", "personal expense"]
+  },
+  {
+    "question": "What is the process for raising a grievance?",
+    "ground_truth": "Employees can raise grievances through formal procedures defined in the employee handbook involving HR review and escalation channels.",
+    "expected_sources": ["employee_handbook"],
+    "type": "process",
+    "difficulty": "medium",
+    "keywords": ["grievance", "HR", "process"]
+  },
+  {
+    "question": "What are the main phases of the onboarding process?",
+    "ground_truth": "The onboarding process includes pre-joining activities, Day One orientation, first-week integration, and a structured 30-60-90 day induction plan.",
+    "expected_sources": ["onboarding"],
+    "type": "process",
+    "difficulty": "easy",
+    "keywords": ["onboarding", "30-60-90", "Day One"]
+  },
+  {
+    "question": "What is the notice period for resignation?",
+    "ground_truth": "The notice period for resignation is defined in the employee handbook and varies based on employment terms and role.",
+    "expected_sources": ["employee_handbook"],
+    "type": "policy_rule",
+    "difficulty": "easy",
+    "keywords": ["notice period", "resignation"]
+  },
+  {
+    "question": "How is absence tracked for disciplinary action?",
+    "ground_truth": "Absence patterns are tracked using the Bradford Factor, which considers the frequency and duration of absences to trigger review thresholds.",
+    "expected_sources": ["leave_attendence_policy"],
+    "type": "fact",
+    "difficulty": "hard",
+    "keywords": ["Bradford Factor", "absence"]
+  }
+]
