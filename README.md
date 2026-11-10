@@ -1,46 +1,44 @@
 ﻿# My Projects
 
-Hey! 👋
+Hi, I'm Ravi Teja.
 
-This is where I keep the projects I've worked on while learning and working with AI, machine learning, computer vision, and Python.
+I work with Python, machine learning, computer vision, and LLM-based applications.
 
-Some came from my internships, some started as personal experiments, and others were built to explore specific problems.
-
-I've grouped everything below to make it easier to navigate.
+I've kept my projects here in one place, grouped by what they focus on. You can explore the code by opening any of the sections below.
 
 ---
 
-## 💼 Internship Projects
+## Computer Vision
 
-These are some of the projects I worked on during my internships.
+Work involving object detection, tracking, matchmoving, and image segmentation.
 
 <details open>
-<summary><b>View Internship Projects (3)</b></summary>
+<summary><b>Explore projects (3)</b></summary>
 
 <br>
 
-**1. [Real-Time Warehouse Vision System](Internship-Projects/realtime-warehouse-vision-system)**
+**[Real-Time Warehouse Vision System](Computer-Vision/realtime-warehouse-vision-system)**
 
-Computer vision system for object detection, QR tracking, pallet association, and warehouse movement monitoring.
+A warehouse monitoring system built with YOLO and OpenCV for object detection, QR tracking, and pallet association.
 
-**2. [AI MatchMove](Internship-Projects/ai-matchmove)**
+**[AI MatchMove](Computer-Vision/ai-matchmove)**
 
-A matchmove project with a Python backend and a web frontend.
+A matchmove project with a Python backend and a Vite-based frontend.
 
-**3. [Image & Video Segmentation using SAM](Internship-Projects/Segmentation_using_SAM_model)**
+**[Segmentation using SAM](Computer-Vision/Segmentation_using_SAM_model)**
 
-Exploring image and video segmentation using Meta's Segment Anything Model.
+Image and video segmentation using the Segment Anything Model.
 
 </details>
 
 ---
 
-## 🤖 Generative AI & RAG
+## Generative AI & RAG
 
-Projects exploring document retrieval, knowledge systems, and LLM applications.
+My projects involving LLMs, document retrieval, and AI assistants.
 
 <details>
-<summary><b>View Generative AI Projects (5)</b></summary>
+<summary><b>Explore projects (5)</b></summary>
 
 <br>
 
@@ -54,25 +52,25 @@ Projects exploring document retrieval, knowledge systems, and LLM applications.
 
 ---
 
-## 🧠 Machine Learning
+## Machine Learning
 
 <details>
-<summary><b>View Machine Learning Projects (1)</b></summary>
+<summary><b>Explore projects (1)</b></summary>
 
 <br>
 
-**[Customer Churn Prediction](Machine-Learning/Customer-Churn-Prediction)**
+[Customer Churn Prediction](Machine-Learning/Customer-Churn-Prediction)
 
-Predicting customer churn using machine learning.
+A machine learning project focused on predicting customer churn.
 
 </details>
 
 ---
 
-## 📊 Data Analytics
+## Data Analytics
 
 <details>
-<summary><b>View Data Analytics Projects (2)</b></summary>
+<summary><b>Explore projects (2)</b></summary>
 
 <br>
 
@@ -83,12 +81,12 @@ Predicting customer churn using machine learning.
 
 ---
 
-## 🐍 Python Projects
+## Python Projects
 
-Smaller projects and experiments from my Python learning journey.
+Some of my earlier Python projects and practice work.
 
 <details>
-<summary><b>View Python Projects (3)</b></summary>
+<summary><b>Explore projects (3)</b></summary>
 
 <br>
 
@@ -100,27 +98,21 @@ Smaller projects and experiments from my Python learning journey.
 
 ---
 
-## 🌐 Portfolio
+## Portfolio
 
 <details>
-<summary><b>View Portfolio (1)</b></summary>
+<summary><b>View portfolio</b></summary>
 
 <br>
 
-[My Portfolio](Portfolio/Portfolio)
+[Personal Portfolio](Portfolio/Portfolio)
 
 </details>
 
 ---
 
-### A quick note
+### Notes
 
-I've kept some of my earlier projects here too. They're part of how I've learned and improved over time.
+Some projects require additional setup, datasets, or model weights that aren't included in this repository.
 
-Each project has its own folder containing the available code and related files.
-
-Some projects need additional dependencies, datasets, or model weights to run.
-
----
-
-Thanks for checking out my work!
+I've also kept my earlier projects here rather than removing them. They're part of my learning and development work.
