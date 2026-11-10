@@ -291,37 +291,6 @@ def get_env_config() -> dict[str, Any]:
 
 
 cfg = get_env_config()
-DATABASE_TARGET = os.getenv(
-    "VISIONTRACK_DASHBOARD_DATABASE",
-    "local",
-).strip().lower()
-
-
-def _bounded_refresh_seconds() -> int:
-    try:
-        configured = int(os.getenv("DASHBOARD_REFRESH_SECONDS", "5"))
-    except ValueError:
-        configured = 5
-    return min(max(configured, 1), 60)
-
-
-DASHBOARD_QUERY_TTL_SECONDS = _bounded_refresh_seconds()
-
-
-def _database_config(
-    host: str,
-    port: int,
-    user: str,
-    password: str,
-    database: str,
-) -> DashboardDatabaseConfig:
-    return DashboardDatabaseConfig(
-        host=host,
-        port=int(port),
-        user=user,
-        password=password,
-        database=database,
-    )
 
 
 # ============================================================
@@ -342,13 +311,14 @@ with st.sidebar:
     st.divider()
     st.subheader("Database")
 
-    env_ready = _database_config(
-        cfg["host"],
-        int(cfg["port"]),
-        cfg["user"],
-        cfg["password"],
-        cfg["database"],
-    ).is_ready(DATABASE_TARGET)
+    env_ready = all(
+        [
+            cfg["host"],
+            cfg["user"],
+            cfg["password"],
+            cfg["database"],
+        ]
+    )
 
     if env_ready:
         st.markdown(
@@ -383,8 +353,8 @@ with st.sidebar:
         st.rerun()
 
     st.caption(
-        f"Database reads are cached for at most {DASHBOARD_QUERY_TTL_SECONDS} "
-        "seconds. Use Refresh dashboard for an immediate reload."
+        "Stable mode: the dashboard does not auto-restart. "
+        "Use Refresh dashboard when new database rows are added."
     )
 
 
@@ -394,16 +364,15 @@ with st.sidebar:
 # authentication handshakes while preserving the existing query cache.
 # ============================================================
 def database_ready() -> bool:
-    return _database_config(
-        DB_HOST,
-        int(DB_PORT),
-        DB_USER,
-        DB_PASSWORD,
-        DB_NAME,
-    ).is_ready(DATABASE_TARGET)
+    return bool(
+        DB_HOST
+        and DB_USER
+        and DB_PASSWORD
+        and DB_NAME
+    )
 
 
-@st.cache_data(ttl=DASHBOARD_QUERY_TTL_SECONDS, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def _cached_database_query(
     sql: str,
     params: tuple,
@@ -414,18 +383,25 @@ def _cached_database_query(
     database: str,
 ) -> pd.DataFrame:
     """
-    Cache identical database queries for a short, bounded live-data window.
+    Cache identical database queries for 60 seconds.
 
     Streamlit reruns the complete script whenever the user changes pages.
     Without this cache, every page switch opens many new remote MySQL
     connections. The cache makes page switching much faster while the
     Refresh dashboard button still allows immediate fresh data.
     """
-    config = _database_config(host, port, user, password, database)
-    if not config.is_ready(DATABASE_TARGET):
+    if not (host and user and password and database):
         return pd.DataFrame()
 
-    client = _database_client(config)
+    client = _database_client(
+        DashboardDatabaseConfig(
+            host=host,
+            port=int(port),
+            user=user,
+            password=password,
+            database=database,
+        )
+    )
     return client.query(sql, params)
 
 
@@ -451,15 +427,6 @@ def fetch_dataframe(
     )
 
 
-_QUERY_FAILURES: dict[str, str] = {}
-_schema_inventory_snapshot: Optional[pd.DataFrame] = None
-
-
-def _record_query_failure(label: str, exc: Exception) -> None:
-    """Record a safe error summary without exposing credentials or SQL."""
-    _QUERY_FAILURES[label] = type(exc).__name__
-
-
 def safe_fetch(
     sql: str,
     params: Optional[tuple] = None,
@@ -469,38 +436,19 @@ def safe_fetch(
     try:
         return fetch_dataframe(sql, params)
     except Exception as exc:
-        _record_query_failure(label, exc)
         if show_error:
-            st.error(
-                f"Could not load {label}. Check the database connection and schema "
-                f"({type(exc).__name__})."
-            )
+            st.error(f"Could not load {label}: {exc}")
         return pd.DataFrame()
 
 
-def _current_schema_inventory() -> pd.DataFrame:
-    global _schema_inventory_snapshot
-
-    if _schema_inventory_snapshot is not None:
-        return _schema_inventory_snapshot
-
-    try:
-        _schema_inventory_snapshot = _schema_inventory(
-            DB_HOST,
-            int(DB_PORT),
-            DB_USER,
-            DB_PASSWORD,
-            DB_NAME,
-        )
-    except Exception as exc:
-        _record_query_failure("database schema", exc)
-        _schema_inventory_snapshot = pd.DataFrame()
-
-    return _schema_inventory_snapshot
-
-
 def table_exists(table_name: str) -> bool:
-    inventory = _current_schema_inventory()
+    inventory = _schema_inventory(
+        DB_HOST,
+        int(DB_PORT),
+        DB_USER,
+        DB_PASSWORD,
+        DB_NAME,
+    )
     if inventory.empty:
         return False
 
@@ -546,7 +494,13 @@ def _schema_inventory(
 
 
 def table_columns(table_name: str) -> list[str]:
-    inventory = _current_schema_inventory()
+    inventory = _schema_inventory(
+        DB_HOST,
+        int(DB_PORT),
+        DB_USER,
+        DB_PASSWORD,
+        DB_NAME,
+    )
     if inventory.empty:
         return []
 
@@ -620,22 +574,16 @@ def classify_box_stage(
     if "CONVEYOR" in lifecycle:
         return "ON_CONVEYOR"
 
-    # Missing/removed describes condition, not a verified physical location.
-    if raw_box_status in {"REMOVED", "MISSING"} or lifecycle in {
-        "REMOVED",
-        "MISSING",
-    }:
-        return "UNLOCATED"
+    # A removed/missing box is no longer counted as physically on a pallet.
+    if raw_box_status in {"REMOVED", "MISSING"}:
+        return "ON_FLOOR"
 
     # AT_DOCK and LOADED_TO_TRAILER remain part of the pallet flow because
     # the current schema still records their pallet_id in the latest event.
     if has_pallet or "PALLET" in lifecycle or "DOCK" in lifecycle or "LOADED" in lifecycle:
         return "ON_PALLET"
 
-    if lifecycle in {"RECEIVED", "ON_FLOOR", "IN_ZONE"}:
-        return "ON_FLOOR"
-
-    return "UNLOCATED"
+    return "ON_FLOOR"
 
 
 def add_box_stage(frame: pd.DataFrame) -> pd.DataFrame:
@@ -663,43 +611,12 @@ def add_box_stage(frame: pd.DataFrame) -> pd.DataFrame:
     return output
 
 
-def box_exception_mask(frame: pd.DataFrame) -> pd.Series:
-    """Return current box exceptions from master or canonical lifecycle state."""
-    if frame.empty:
-        return pd.Series(False, index=frame.index, dtype=bool)
-
-    box_status = frame.get(
-        "box_status",
-        pd.Series(index=frame.index, dtype="object"),
-    ).fillna("").astype(str).str.upper()
-    lifecycle_status = frame.get(
-        "lifecycle_status",
-        pd.Series(index=frame.index, dtype="object"),
-    ).fillna("").astype(str).str.upper()
-    return box_status.isin({"MISSING", "REMOVED"}) | lifecycle_status.isin(
-        {"BOX_EXCEPTION", "MISSING", "REMOVED"}
-    )
-
-
 # ============================================================
 # CORE WAREHOUSE DATA — CURRENT SCHEMA
 # customers -> orders -> order_items -> order_item_products
 # -> order_boxes -> boxes
 # Current box position comes from the latest lifecycle event.
 # ============================================================
-if not database_ready():
-    password_note = (
-        " A password is required for the cloud profile."
-        if DATABASE_TARGET == "cloud"
-        else " A blank password is valid for a local MySQL profile."
-    )
-    st.error(
-        "Database settings are incomplete. Host, user, and database are required."
-        + password_note
-    )
-    st.stop()
-
-
 def load_boxes() -> pd.DataFrame:
     return safe_fetch(
         """
@@ -769,18 +686,6 @@ def load_boxes() -> pd.DataFrame:
                         FROM order_lifecycle_events history
                         WHERE history.box_id = ole.box_id
                           AND history.pallet_id IS NOT NULL
-                          AND history.entity_type = 'BOX'
-                          AND history.lifecycle_status IN (
-                              'RECEIVED', 'ON_FLOOR', 'ON_CONVEYOR', 'IN_ZONE',
-                              'ON_PALLET', 'AT_DOCK', 'LOADED_TO_TRAILER',
-                              'DISPATCHED', 'BOX_EXCEPTION', 'REMOVED', 'MISSING'
-                          )
-                          AND COALESCE(history.source_reference, '') NOT LIKE 'CV:RUN:%'
-                          AND COALESCE(history.source_reference, '') NOT LIKE 'box-status-%'
-                          AND COALESCE(history.source_reference, '') NOT LIKE 'video-final-box-%'
-                          AND COALESCE(history.event_type, '') NOT IN (
-                              'CV_FINAL_STATE', 'BOX_STATUS_CHANGED', 'VIDEO_FINAL_BOX_SYNC'
-                          )
                           AND history.order_lifecycle_event_id <= ole.order_lifecycle_event_id
                         ORDER BY history.order_lifecycle_event_id DESC
                         LIMIT 1
@@ -793,18 +698,6 @@ def load_boxes() -> pd.DataFrame:
                         FROM order_lifecycle_events history
                         WHERE history.box_id = ole.box_id
                           AND history.trailer_id IS NOT NULL
-                          AND history.entity_type = 'BOX'
-                          AND history.lifecycle_status IN (
-                              'RECEIVED', 'ON_FLOOR', 'ON_CONVEYOR', 'IN_ZONE',
-                              'ON_PALLET', 'AT_DOCK', 'LOADED_TO_TRAILER',
-                              'DISPATCHED', 'BOX_EXCEPTION', 'REMOVED', 'MISSING'
-                          )
-                          AND COALESCE(history.source_reference, '') NOT LIKE 'CV:RUN:%'
-                          AND COALESCE(history.source_reference, '') NOT LIKE 'box-status-%'
-                          AND COALESCE(history.source_reference, '') NOT LIKE 'video-final-box-%'
-                          AND COALESCE(history.event_type, '') NOT IN (
-                              'CV_FINAL_STATE', 'BOX_STATUS_CHANGED', 'VIDEO_FINAL_BOX_SYNC'
-                          )
                           AND history.order_lifecycle_event_id <= ole.order_lifecycle_event_id
                         ORDER BY history.order_lifecycle_event_id DESC
                         LIMIT 1
@@ -817,18 +710,6 @@ def load_boxes() -> pd.DataFrame:
                     MAX(order_lifecycle_event_id) AS latest_event_id
                 FROM order_lifecycle_events
                 WHERE box_id IS NOT NULL
-                  AND entity_type = 'BOX'
-                  AND lifecycle_status IN (
-                      'RECEIVED', 'ON_FLOOR', 'ON_CONVEYOR', 'IN_ZONE',
-                      'ON_PALLET', 'AT_DOCK', 'LOADED_TO_TRAILER',
-                      'DISPATCHED', 'BOX_EXCEPTION', 'REMOVED', 'MISSING'
-                  )
-                  AND COALESCE(source_reference, '') NOT LIKE 'CV:RUN:%'
-                  AND COALESCE(source_reference, '') NOT LIKE 'box-status-%'
-                  AND COALESCE(source_reference, '') NOT LIKE 'video-final-box-%'
-                  AND COALESCE(event_type, '') NOT IN (
-                      'CV_FINAL_STATE', 'BOX_STATUS_CHANGED', 'VIDEO_FINAL_BOX_SYNC'
-                  )
                 GROUP BY box_id
             ) selected
                 ON selected.latest_event_id = ole.order_lifecycle_event_id
@@ -975,8 +856,8 @@ boxes = add_box_stage(boxes)
 # PALLET LAYER DATA
 # The current lifecycle remains the source of truth for the pallet.
 # row_no, column_no, slot_no and layer_no are taken from the latest
-# matching video_final_boxes row. Missing or stale coordinates are omitted
-# rather than presented as measured physical positions.
+# video_final_boxes row when available. Missing positions receive a
+# deterministic fallback so every live pallet can still be visualized.
 # ============================================================
 def load_pallet_layer_boxes(box_frame: pd.DataFrame) -> pd.DataFrame:
     if box_frame.empty:
@@ -1070,38 +951,94 @@ def load_pallet_layer_boxes(box_frame: pd.DataFrame) -> pd.DataFrame:
 
     # Current lifecycle pallet is authoritative. Old video placement data
     # from another pallet is ignored and replaced with a safe fallback.
-    same_pallet = merged["video_pallet_code"].notna() & merged[
-        "video_pallet_code"
-    ].astype(str).eq(merged["current_pallet_code"].astype(str))
+    same_pallet = (
+        merged["video_pallet_code"].isna()
+        | merged["video_pallet_code"].astype(str).eq(
+            merged["current_pallet_code"].astype(str)
+        )
+    )
 
     for column in ["slot_no", "row_no", "column_no", "layer_no"]:
         merged[column] = pd.to_numeric(merged[column], errors="coerce")
-
-    verified_position = same_pallet
-    for column in ["row_no", "column_no", "layer_no"]:
-        verified_position &= merged[column].notna() & merged[column].ge(1)
-
-    # A missing or stale coordinate is omitted. The dashboard must not invent
-    # a physical stack position simply to fill the drawing.
-    merged = merged[verified_position].copy()
-    if merged.empty:
-        return pd.DataFrame()
+        merged.loc[~same_pallet, column] = pd.NA
 
     merged["pallet_code"] = merged["current_pallet_code"]
     merged["status"] = merged["video_status"].where(
         merged["video_status"].notna(),
         merged["box_status"],
     )
-    missing_slot = merged["slot_no"].isna()
-    merged.loc[missing_slot, "slot_no"] = (
-        (merged.loc[missing_slot, "row_no"] - 1) * 3
-        + merged.loc[missing_slot, "column_no"]
-    )
-    for column in ["slot_no", "row_no", "column_no", "layer_no"]:
-        merged[column] = merged[column].astype(int)
-    merged["position_source"] = "Computer vision"
+    merged["position_source"] = "Lifecycle fallback"
+    merged.loc[
+        same_pallet & merged["layer_no"].notna(),
+        "position_source",
+    ] = "Computer vision"
 
-    return merged.sort_values(
+    normalized_groups: list[pd.DataFrame] = []
+
+    for pallet_code, group in merged.groupby("pallet_code", dropna=False):
+        group = group.sort_values("box_code").reset_index(drop=True)
+
+        # Reserve six base positions per layer: two rows × three columns.
+        occupied: set[tuple[int, int, int]] = set()
+        for row in group.itertuples(index=False):
+            if (
+                pd.notna(getattr(row, "layer_no", None))
+                and pd.notna(getattr(row, "row_no", None))
+                and pd.notna(getattr(row, "column_no", None))
+            ):
+                occupied.add(
+                    (
+                        int(getattr(row, "layer_no")),
+                        int(getattr(row, "row_no")),
+                        int(getattr(row, "column_no")),
+                    )
+                )
+
+        fallback_cursor = 0
+        for index in group.index:
+            needs_position = any(
+                pd.isna(group.at[index, column])
+                for column in ["layer_no", "row_no", "column_no"]
+            )
+
+            if not needs_position:
+                if pd.isna(group.at[index, "slot_no"]):
+                    group.at[index, "slot_no"] = (
+                        (int(group.at[index, "row_no"]) - 1) * 3
+                        + int(group.at[index, "column_no"])
+                    )
+                continue
+
+            while True:
+                layer_no = (fallback_cursor // 6) + 1
+                slot_index = fallback_cursor % 6
+                row_no = (slot_index // 3) + 1
+                column_no = (slot_index % 3) + 1
+                fallback_cursor += 1
+
+                if (layer_no, row_no, column_no) not in occupied:
+                    occupied.add((layer_no, row_no, column_no))
+                    break
+
+            group.at[index, "layer_no"] = layer_no
+            group.at[index, "row_no"] = row_no
+            group.at[index, "column_no"] = column_no
+            group.at[index, "slot_no"] = slot_index + 1
+
+        for column in ["slot_no", "row_no", "column_no", "layer_no"]:
+            group[column] = (
+                pd.to_numeric(group[column], errors="coerce")
+                .fillna(1)
+                .astype(int)
+            )
+
+        normalized_groups.append(group)
+
+    if not normalized_groups:
+        return pd.DataFrame()
+
+    result = pd.concat(normalized_groups, ignore_index=True)
+    return result.sort_values(
         ["pallet_code", "layer_no", "row_no", "column_no", "box_code"]
     ).reset_index(drop=True)
 
@@ -1273,18 +1210,6 @@ orders = safe_fetch(
                     MAX(order_lifecycle_event_id) AS latest_event_id
                 FROM order_lifecycle_events
                 WHERE box_id IS NOT NULL
-                  AND entity_type = 'BOX'
-                  AND lifecycle_status IN (
-                      'RECEIVED', 'ON_FLOOR', 'ON_CONVEYOR', 'IN_ZONE',
-                      'ON_PALLET', 'AT_DOCK', 'LOADED_TO_TRAILER',
-                      'DISPATCHED', 'BOX_EXCEPTION', 'REMOVED', 'MISSING'
-                  )
-                  AND COALESCE(source_reference, '') NOT LIKE 'CV:RUN:%'
-                  AND COALESCE(source_reference, '') NOT LIKE 'box-status-%'
-                  AND COALESCE(source_reference, '') NOT LIKE 'video-final-box-%'
-                  AND COALESCE(event_type, '') NOT IN (
-                      'CV_FINAL_STATE', 'BOX_STATUS_CHANGED', 'VIDEO_FINAL_BOX_SYNC'
-                  )
                 GROUP BY box_id
             ) selected
                 ON selected.latest_event_id = ole.order_lifecycle_event_id
@@ -1326,14 +1251,6 @@ events = safe_fetch(
         ON z.zone_id = ole.zone_id
     LEFT JOIN docks d
         ON d.dock_id = ole.dock_id
-    WHERE COALESCE(ole.source_reference, '') NOT LIKE 'CV:RUN:%'
-      AND COALESCE(ole.source_reference, '') NOT LIKE 'box-status-%'
-      AND COALESCE(ole.source_reference, '') NOT LIKE 'video-final-box-%'
-      AND COALESCE(ole.source_reference, '') NOT LIKE 'video-final-pallet-%'
-      AND COALESCE(ole.event_type, '') NOT IN (
-          'CV_FINAL_STATE', 'BOX_STATUS_CHANGED',
-          'VIDEO_FINAL_BOX_SYNC', 'VIDEO_FINAL_PALLET_SYNC'
-      )
     ORDER BY ole.event_time DESC, ole.order_lifecycle_event_id DESC;
     """,
     label="order lifecycle events",
@@ -1715,7 +1632,6 @@ if boxes_per_min is None:
     )
 
 processing_fps = metric_value(
-    "average_processing_fps",
     "processed_fps",
     "effective_source_fps",
 )
@@ -1793,9 +1709,9 @@ if qr_read_rate is None:
 
 # ============================================================
 # KPI CALCULATIONS
-# Every box is assigned to exactly one of five operational states.
+# Every box is assigned to exactly one of four operational states.
 # Therefore:
-# Dispatched + On Pallets + On Conveyor + On Floor + Unlocated = processed.
+# Dispatched + On Pallets + On Conveyor + On Floor = Boxes Processed.
 # ============================================================
 boxes_processed = (
     int(boxes["box_id"].nunique())
@@ -1809,7 +1725,7 @@ else:
     stage_counts = (
         boxes.drop_duplicates(subset=["box_id"])
         ["operational_stage"]
-        .fillna("UNLOCATED")
+        .fillna("ON_FLOOR")
         .astype(str)
         .value_counts()
         .to_dict()
@@ -1819,14 +1735,12 @@ dispatched_boxes = int(stage_counts.get("DISPATCHED", 0))
 boxes_on_pallets = int(stage_counts.get("ON_PALLET", 0))
 boxes_on_conveyor = int(stage_counts.get("ON_CONVEYOR", 0))
 boxes_on_floor = int(stage_counts.get("ON_FLOOR", 0))
-boxes_unlocated = int(stage_counts.get("UNLOCATED", 0))
 
 reconciled_box_total = (
     dispatched_boxes
     + boxes_on_pallets
     + boxes_on_conveyor
     + boxes_on_floor
-    + boxes_unlocated
 )
 
 
@@ -2050,7 +1964,18 @@ if (
 elif stored_boxes_per_min is not None:
     boxes_per_min = stored_boxes_per_min
 
-database_exceptions = int(box_exception_mask(boxes).sum())
+database_exceptions = (
+    int(
+        boxes["box_status"]
+        .fillna("")
+        .astype(str)
+        .str.upper()
+        .isin(["REMOVED", "MISSING"])
+        .sum()
+    )
+    if not boxes.empty
+    else 0
+)
 
 video_exception_count = 0
 if (
@@ -2176,79 +2101,6 @@ def render_kpis() -> None:
         )
 
 
-def _selected_run_number(*names: str) -> Optional[float]:
-    for name in names:
-        value = selected_run.get(name)
-        try:
-            if value is not None and not pd.isna(value):
-                return float(value)
-        except (TypeError, ValueError):
-            continue
-    return None
-
-
-def render_inference_run_kpis() -> None:
-    """Render only values tied to the selected computer-vision run."""
-    if selected_run_id is None:
-        st.info("No computer-vision run is available yet.")
-        return
-
-    run_fps = metric_value("average_processing_fps")
-    if run_fps is None:
-        run_fps = processing_fps
-
-    unique_boxes = metric_value("unique_boxes_seen", "final_box_count")
-    unique_pallets = metric_value("unique_pallets_seen", "final_pallet_count")
-    matched_boxes = metric_value("database_matched_box_count")
-    matched_pallets = metric_value("database_matched_pallet_count")
-    unique_qrs = metric_value("unique_qrs_seen")
-    total_events = metric_value("total_event_count")
-    add_events = metric_value("event_count_ADD", "event_count_add")
-    dispatch_events = metric_value("event_count_DISPATCH", "event_count_dispatch")
-    pending_identities = metric_value("pending_identity_event_count")
-    dropped_identities = metric_value("dropped_unresolved_event_count")
-
-    processed_frames = _selected_run_number("processed_frames")
-    expected_frames = metric_value("expected_processed_frames")
-    frame_coverage = (
-        f"{int(processed_frames):,} / {int(expected_frames):,}"
-        if processed_frames is not None and expected_frames is not None
-        else "N/A"
-    )
-    run_speed = _selected_run_number("speed_vs_realtime")
-    realtime_factor = _selected_run_number("realtime_factor")
-    run_status = str(selected_run.get("status") or "UNKNOWN")
-
-    cards = [
-        ("Run Status", run_status, "video_processing_runs.status"),
-        ("Processing FPS", format_value(run_fps, 2, unavailable=run_fps is None), "run average"),
-        ("Speed vs Real Time", format_value(run_speed, 2, "x", unavailable=run_speed is None), "video duration / elapsed"),
-        ("Realtime Factor", format_value(realtime_factor, 3, "x", unavailable=realtime_factor is None), "elapsed / video duration"),
-        ("Frame Coverage", frame_coverage, "processed / expected"),
-        ("Unique Boxes Seen", format_value(unique_boxes, unavailable=unique_boxes is None), "CV identities"),
-        ("DB Matched Boxes", format_value(matched_boxes, unavailable=matched_boxes is None), "master-data matches"),
-        ("Unique Pallets Seen", format_value(unique_pallets, unavailable=unique_pallets is None), "CV identities"),
-        ("DB Matched Pallets", format_value(matched_pallets, unavailable=matched_pallets is None), "master-data matches"),
-        ("Unique QR Values", format_value(unique_qrs, unavailable=unique_qrs is None), "decoded identities"),
-        ("Run Events", format_value(total_events, unavailable=total_events is None), "persisted CV events"),
-        ("ADD Events", format_value(add_events, unavailable=add_events is None), "selected run"),
-        ("DISPATCH Events", format_value(dispatch_events, unavailable=dispatch_events is None), "selected run"),
-        ("Pending Identities", format_value(pending_identities, unavailable=pending_identities is None), "unresolved at run end"),
-        ("Dropped Unresolved", format_value(dropped_identities, unavailable=dropped_identities is None), "not persisted as warehouse state"),
-    ]
-
-    st.markdown(
-        '<div class="section-title">SELECTED INFERENCE RUN KPIs</div>',
-        unsafe_allow_html=True,
-    )
-    st.caption(f"Run {selected_run_id}: values below are run-scoped database evidence.")
-    per_row = 5
-    for start in range(0, len(cards), per_row):
-        columns = st.columns(per_row)
-        for column, (label, value, help_text) in zip(columns, cards[start:start + per_row]):
-            column.metric(label, value, help=help_text)
-
-
 # ============================================================
 # INTERACTIVE WAREHOUSE DIGITAL TWIN
 # Simplified guide-approved layout: two docks remain on the right,
@@ -2308,14 +2160,9 @@ STATUS_STYLE = {
 
 def visual_status_for_row(row: pd.Series) -> str:
     raw_status = str(row.get("box_status") or "").upper()
-    lifecycle_status = str(row.get("lifecycle_status") or "").upper()
     stage = str(row.get("operational_stage") or "ON_FLOOR").upper()
 
-    if raw_status in {"MISSING", "REMOVED"} or lifecycle_status in {
-        "BOX_EXCEPTION",
-        "MISSING",
-        "REMOVED",
-    }:
+    if raw_status in {"MISSING", "REMOVED"}:
         return "CRITICAL"
 
     if stage == "DISPATCHED":
@@ -2759,16 +2606,6 @@ def _assign_grid_to_indices(
         output.at[row_index, "visual_location"] = location_name
 
 
-def _known_dock_slot(value: Any) -> Optional[str]:
-    """Map only explicit Dock 1/2 identifiers; never guess an unknown dock."""
-    code = str(value or "").strip().upper().replace("-", "_").replace(" ", "_")
-    if code in {"DOCK_1", "DOCK_01"}:
-        return "DOCK 1"
-    if code in {"DOCK_2", "DOCK_02"}:
-        return "DOCK 2"
-    return None
-
-
 def position_boxes(
     box_frame: pd.DataFrame,
     pallet_positions: dict[str, tuple[float, float, float, float]],
@@ -2833,14 +2670,21 @@ def position_boxes(
     )
     dock_candidates = [index for index in output.index[dock_mask].tolist() if index not in assigned]
 
-    dock_slots = {index: _known_dock_slot(dock_codes.iloc[index]) for index in dock_candidates}
-    dock_1_indices = [index for index, slot in dock_slots.items() if slot == "DOCK 1"]
-    dock_2_indices = [index for index, slot in dock_slots.items() if slot == "DOCK 2"]
-    unresolved_dock_indices = [
-        index for index, slot in dock_slots.items() if slot is None
+    dock_1_indices = [
+        index for index in dock_candidates
+        if "01" in dock_codes.iloc[index] or dock_codes.iloc[index].endswith("1")
     ]
-    if unresolved_dock_indices:
-        output.loc[unresolved_dock_indices, "visual_location"] = "UNRESOLVED DOCK"
+    dock_2_indices = [index for index in dock_candidates if index not in set(dock_1_indices)]
+
+    # If a dock code is missing, balance the unknown rows across both docks.
+    unknown_dock_indices = [
+        index for index in dock_candidates
+        if dock_codes.iloc[index] == ""
+    ]
+    dock_1_indices = [index for index in dock_1_indices if index not in unknown_dock_indices]
+    dock_2_indices = [index for index in dock_2_indices if index not in unknown_dock_indices]
+    for number, index in enumerate(unknown_dock_indices):
+        (dock_1_indices if number % 2 == 0 else dock_2_indices).append(index)
 
     _assign_grid_to_indices(
         output,
@@ -2858,7 +2702,6 @@ def position_boxes(
     )
     assigned.update(dock_1_indices)
     assigned.update(dock_2_indices)
-    assigned.update(unresolved_dock_indices)
 
     # Conveyor.
     conveyor_indices = [
@@ -2904,28 +2747,23 @@ def position_boxes(
         )
         assigned.update(indices)
 
-    # Do not invent a pallet placement when the current pallet is unknown or is
-    # not represented by one of the visible pallet records.
+    # Pallet-stage rows without a known pallet are balanced across the six zones.
     unmatched_pallet_indices = [
         index for index in pallet_candidate_indices if index not in assigned
     ]
-    if unmatched_pallet_indices:
-        output.loc[unmatched_pallet_indices, "visual_location"] = "UNRESOLVED PALLET"
-        assigned.update(unmatched_pallet_indices)
+    for zone_index, bounds in enumerate(PALLET_BOUNDS):
+        indices = unmatched_pallet_indices[zone_index::len(PALLET_BOUNDS)]
+        _assign_grid_to_indices(
+            output,
+            indices,
+            bounds,
+            f"PALLET ZONE {zone_index + 1}",
+            top_label_space=0.42,
+        )
+        assigned.update(indices)
 
-    # Keep boxes with no verified physical state out of the warehouse map.
-    remaining_indices = [index for index in output.index if index not in assigned]
-    unlocated_indices = [
-        index
-        for index in remaining_indices
-        if output.at[index, "operational_stage"] == "UNLOCATED"
-    ]
-    if unlocated_indices:
-        output.loc[unlocated_indices, "visual_location"] = "UNLOCATED"
-        assigned.update(unlocated_indices)
-
-    # Verified floor boxes share two display regions only to keep markers
-    # readable; this split is visual layout, not an inferred warehouse location.
+    # Remaining boxes are on the warehouse floor. Keep received and packed rows
+    # separated without displaying forbidden Receiving/Packing visual sections.
     remaining_indices = [index for index in output.index if index not in assigned]
     north_floor = [
         index for index in remaining_indices
@@ -3280,23 +3118,6 @@ def create_warehouse_figure(
 
     pallet_positions = draw_pallets(figure, pallet_frame)
     positioned = position_boxes(box_frame, pallet_positions)
-    unresolved_count = int(
-        positioned.get("visual_location", pd.Series(dtype="object"))
-        .isin({"UNLOCATED", "UNRESOLVED DOCK", "UNRESOLVED PALLET"})
-        .sum()
-    )
-    if unresolved_count:
-        figure.add_annotation(
-            x=0.55,
-            y=9.48,
-            xanchor="left",
-            text=f"<b>{unresolved_count} box(es) omitted: no verified map location</b>",
-            showarrow=False,
-            bgcolor="rgba(254,243,199,0.95)",
-            bordercolor=DASHBOARD_COLORS["amber"],
-            borderpad=4,
-            font=dict(size=10, color="#7c4a03"),
-        )
     filtered_dispatch_assets = build_dispatch_assets(box_frame)
     add_region_counts(figure, positioned, filtered_dispatch_assets)
     add_region_hover_targets(figure, positioned, filtered_dispatch_assets)
@@ -3669,19 +3490,6 @@ def create_pallet_layer_figure(
 # ============================================================
 # PAGE: LIVE OPERATIONS
 # ============================================================
-if _QUERY_FAILURES:
-    failed_sources = ", ".join(
-        f"{label} ({error_type})"
-        for label, error_type in sorted(_QUERY_FAILURES.items())
-    )
-    st.error(
-        "Dashboard data is incomplete, so operational KPIs and location maps "
-        "are withheld instead of showing false zero or healthy states."
-    )
-    st.caption("Failed data sources: " + failed_sources)
-    st.stop()
-
-
 if page == "Live Operations":
     st.markdown(
         '<div class="main-title">VISIONTRACK LIVE OPERATIONS</div>',
@@ -3689,7 +3497,6 @@ if page == "Live Operations":
     )
 
     render_kpis()
-    render_inference_run_kpis()
 
     # Calculation consistency check.
     if reconciled_box_total != boxes_processed:

@@ -7,9 +7,7 @@ from typing import Optional
 
 
 class EventType(str, Enum):
-    CONVEYOR_ENTRY = "CONVEYOR_ENTRY"
-    ZONE_TRANSFER = "ZONE_TRANSFER"
-    DOCK_ARRIVAL = "DOCK_ARRIVAL"
+    REGISTERED = "REGISTERED"
     ADD = "ADD"
     MOVE = "MOVE"
     SWAP = "SWAP"
@@ -17,6 +15,9 @@ class EventType(str, Enum):
     REMOVE = "REMOVE"
     RE_ADD = "RE_ADD"
     DISPATCH = "DISPATCH"
+    DOCK_ARRIVAL = "DOCK_ARRIVAL"
+    CONVEYOR_ENTRY = "CONVEYOR_ENTRY"
+    ZONE_TRANSFER = "ZONE_TRANSFER"
 
 
 @dataclass(frozen=True)

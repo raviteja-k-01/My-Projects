@@ -18,13 +18,20 @@ class PerceptionPipeline:
         self,
         model_profile: ModelProfile,
         app_config: dict | None = None,
+        detector: Detector | None = None,
     ):
         self.model_profile = model_profile
-        self.detector = Detector(model_profile)
-        self.qr_decoder = QRDecoder(model_profile.qr)
+        self.detector = detector if detector is not None else Detector(model_profile)
+        perception_config = (app_config or {}).get("perception", {})
+        self.guard_qr_identity = perception_config.get("guard_qr_identity", False)
+        self.identity_conflicts: set[str] = set()
+        self.track_continuity = TrackContinuity()
+        qr_config = dict(model_profile.qr)
+        if self.guard_qr_identity:
+            qr_config["preserve_duplicate_reads"] = True
+        self.qr_decoder = QRDecoder(qr_config)
         self.last_qrs: list[dict] = []
         self.last_display_observations: list[RawObservation] = []
-        perception_config = (app_config or {}).get("perception", {})
         self.synthesize_missing_boxes_from_qr = bool(
             perception_config.get("synthesize_missing_boxes_from_qr", False)
         )
@@ -48,13 +55,17 @@ class PerceptionPipeline:
         )
         self.qr_identity_cache = QRTrackIdentityCache(
             stale_frames=qr_cache_stale_frames,
+            recheck=self.guard_qr_identity,
         )
         self.qr_stabilizer = QRStabilizer(
             stale_frames=max(3, min(6, stale_frames)),
         )
 
     def process_frame(self, frame, frame_number: int) -> list[RawObservation]:
+        self.identity_conflicts.clear()
         observations = self.detector.track_objects(frame)
+        if self.guard_qr_identity:
+            observations = self.track_continuity.update(observations, frame_number)
         qr_observations = [observation for observation in observations if observation.class_name == "qr_code"]
         cached_qrs, unresolved_qr_observations = self.qr_identity_cache.partition(
             qr_observations,
@@ -67,7 +78,15 @@ class PerceptionPipeline:
         decoded_qrs = self._attach_qr_tracks(decoded_qrs, unresolved_qr_observations)
         self.qr_identity_cache.remember(decoded_qrs, frame_number)
         decoded_qrs = [*cached_qrs, *decoded_qrs]
-        qr_values = self.qr_stabilizer.update(decoded_qrs, qr_observations, frame_number)
+        if self.guard_qr_identity:
+            self.identity_conflicts.update(conflicting_identities(
+                (qr["value"], qr["bbox"]) for qr in decoded_qrs
+            ))
+            # The cache already covers brief decode failures on continuous tracks.
+            # Avoid transferring an old read to a different track by proximity.
+            qr_values = [qr for qr in decoded_qrs if qr["value"] not in self.identity_conflicts]
+        else:
+            qr_values = self.qr_stabilizer.update(decoded_qrs, qr_observations, frame_number)
         self.last_qrs = qr_values
 
         enriched = []
@@ -109,6 +128,24 @@ class PerceptionPipeline:
                 qr_values,
             )
 
+        if self.guard_qr_identity:
+            for kind in ("box", "pallet"):
+                self.identity_conflicts.update(conflicting_identities(
+                    (item.qr_value, item.bbox) for item in enriched
+                    if item.class_name == kind and item.qr_value
+                ))
+            enriched = [
+                item for item in enriched
+                if item.qr_value not in self.identity_conflicts
+                and not (
+                    item.class_name in {"box", "pallet"}
+                    and any(
+                        qr["value"] in self.identity_conflicts
+                        and point_in_polygon(bbox_center(qr["bbox"]), bbox_polygon(item.bbox))
+                        for qr in decoded_qrs
+                    )
+                )
+            ]
         return self.stabilizer.update(enriched, frame_number)
 
     def _add_missing_boxes_from_package_qrs(
@@ -226,11 +263,46 @@ class PerceptionPipeline:
 class _QRIdentityRecord:
     value: str
     last_seen_frame: int
+    decoded_frame: int
+    bbox: tuple[int, int, int, int]
+
+
+class TrackContinuity:
+    """Give a reused tracker ID a fresh run-local identity after a long gap."""
+
+    def __init__(self, max_gap=30):
+        self.max_gap = max_gap
+        self.tracks = {}
+        self.next_id = 0
+
+    def update(self, observations, frame_number):
+        for key, (_, last_seen, _) in list(self.tracks.items()):
+            if frame_number - last_seen > self.max_gap:
+                del self.tracks[key]
+        current = []
+        for item in observations:
+            if item.track_id is None:
+                current.append(item)
+                continue
+            key = (item.class_name, item.track_id)
+            previous = self.tracks.get(key)
+            if previous is None or (
+                bbox_overlap_ratio(previous[2], item.bbox) == 0
+                and center_distance_score(previous[2], item.bbox) == 0
+            ):
+                self.next_id += 1
+                identity = self.next_id
+            else:
+                identity = previous[0]
+            self.tracks[key] = (identity, frame_number, item.bbox)
+            current.append(replace(item, track_id=identity))
+        return current
 
 
 class QRTrackIdentityCache:
-    def __init__(self, stale_frames: int = 30):
+    def __init__(self, stale_frames: int = 30, recheck: bool = False):
         self.stale_frames = max(1, stale_frames)
+        self.recheck = recheck
         self.records: dict[int, _QRIdentityRecord] = {}
 
     def partition(
@@ -245,11 +317,19 @@ class QRTrackIdentityCache:
         for observation in observations:
             track_id = observation.track_id
             record = self.records.get(track_id) if track_id is not None else None
-            if record is None:
+            if record is None or (
+                self.recheck
+                and (
+                    frame_number - record.last_seen_frame > 2
+                    or frame_number - record.decoded_frame >= self.stale_frames
+                    or bbox_overlap_ratio(record.bbox, observation.bbox) < 0.15
+                )
+            ):
                 unresolved.append(observation)
                 continue
 
             record.last_seen_frame = frame_number
+            record.bbox = observation.bbox
             cached.append(
                 {
                     "value": record.value,
@@ -270,6 +350,8 @@ class QRTrackIdentityCache:
             self.records[int(track_id)] = _QRIdentityRecord(
                 value=str(value),
                 last_seen_frame=frame_number,
+                decoded_frame=frame_number,
+                bbox=qr["bbox"],
             )
 
     def _expire(self, frame_number: int) -> None:
@@ -371,6 +453,22 @@ class QRStabilizer:
                 best_index = index
 
         return best_index if best_score > 0.22 else None
+
+
+def conflicting_identities(claims):
+    locations = {}
+    conflicts = set()
+    for code, bbox in claims:
+        previous = locations.setdefault(code, [])
+        if any(bbox_overlap_ratio(bbox, other) < 0.15 for other in previous):
+            conflicts.add(code)
+        previous.append(bbox)
+    return conflicts
+
+
+def bbox_polygon(bbox):
+    x1, y1, x2, y2 = bbox
+    return [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
 
 
 def bbox_overlap_ratio(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:

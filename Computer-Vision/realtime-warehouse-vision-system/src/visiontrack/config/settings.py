@@ -61,6 +61,7 @@ class DatabaseSettings:
 class AppSettings:
     app: dict[str, Any]
     models: dict[str, Any]
+    zones: dict[str, Any]
     database: DatabaseSettings
 
 
@@ -99,11 +100,13 @@ def _load_database(database_config: dict[str, Any], target: str | None) -> Datab
 def load_settings(
     app_config: str | Path = "configs/app.yaml",
     models_config: str | Path = "configs/models.yaml",
+    zones_config: str | Path = "configs/zones.yaml",
     database_target: str | None = None,
 ) -> AppSettings:
     app = load_yaml(project_path(app_config))
     return AppSettings(
         app=app,
         models=load_yaml(project_path(models_config)),
+        zones=load_yaml(project_path(zones_config)),
         database=_load_database(app.get("database", {}), database_target),
     )

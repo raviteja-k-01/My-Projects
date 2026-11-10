@@ -9,11 +9,7 @@ import pandas as pd
 
 
 _READ_ONLY_STATEMENT = re.compile(
-    r"^\s*(?:SELECT|SHOW|DESCRIBE|DESC|EXPLAIN)\b",
-    flags=re.IGNORECASE,
-)
-_READ_SIDE_EFFECT = re.compile(
-    r"\b(?:FOR\s+UPDATE|INTO\s+(?:OUTFILE|DUMPFILE))\b",
+    r"^\s*(?:SELECT|SHOW|DESCRIBE|DESC|EXPLAIN|WITH)\b",
     flags=re.IGNORECASE,
 )
 _TRANSIENT_MYSQL_ERRORS = frozenset(
@@ -30,16 +26,6 @@ class DashboardDatabaseConfig:
     database: str
     connection_timeout_seconds: int = 10
 
-    def is_ready(self, database_target: str = "local") -> bool:
-        """Return whether the selected profile has enough values to connect.
-
-        A local MySQL installation may intentionally use an empty password.
-        Cloud profiles must always provide one.
-        """
-        target = database_target.strip().lower()
-        required = (self.host.strip(), self.user.strip(), self.database.strip())
-        return bool(all(required) and (target != "cloud" or self.password))
-
 
 class MySQLReadClient:
     """Thread-safe, reconnecting MySQL reader for the Streamlit dashboard.
@@ -55,7 +41,8 @@ class MySQLReadClient:
         self._lock = RLock()
 
     def query(self, sql: str, params: tuple[Any, ...] = ()) -> pd.DataFrame:
-        self._validate_read_only(sql)
+        if not _READ_ONLY_STATEMENT.match(sql):
+            raise ValueError("Dashboard database access is read-only.")
 
         with self._lock:
             try:
@@ -65,17 +52,6 @@ class MySQLReadClient:
                     raise
                 self._close_unlocked()
                 return self._execute(sql, params)
-
-    @staticmethod
-    def _validate_read_only(sql: str) -> None:
-        statement = str(sql).strip()
-        without_trailing_terminator = statement[:-1].rstrip() if statement.endswith(";") else statement
-        if (
-            not _READ_ONLY_STATEMENT.match(statement)
-            or ";" in without_trailing_terminator
-            or _READ_SIDE_EFFECT.search(statement)
-        ):
-            raise ValueError("Dashboard database access is read-only.")
 
     def close(self) -> None:
         with self._lock:

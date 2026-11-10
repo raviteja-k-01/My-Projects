@@ -5,8 +5,8 @@ Starts the supported VisionTrack video processor.
 .DESCRIPTION
 This script is a convenience wrapper. It selects the project Python interpreter,
 adds src to Python's import path, and forwards the chosen options to
-visiontrack.cli. Detection, tracking, event generation, and database persistence
-are implemented in the Python package rather than in this script.
+the VisionTrack application entry point. Detection, tracking, event generation,
+and database persistence are implemented in the Python package rather than in this script.
 #>
 [CmdletBinding()]
 param(
@@ -60,7 +60,8 @@ if ($DatabaseName) {
 }
 
 $CliArguments = @(
-    "-m", "visiontrack.cli",
+    "-m", "visiontrack",
+    "video",
     "--video", $Video,
     "--db-mode", $Database,
     "--model-key", $Model,

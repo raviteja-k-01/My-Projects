@@ -1,7 +1,9 @@
 project:
-  name: Realtime Warehouse Vision System
-  active_scope: realtime_warehouse_lifecycle
+  name: VisionTrack Warehouse Intelligence Platform
+  active_scope: pallet_zone_mvp
+
 runtime:
+  process_every_frame: true
   default_model_key: six_class_final
   display_window_name: VisionTrack Warehouse Monitor
   input_video_dir: data/input_videos
@@ -10,27 +12,140 @@ runtime:
   output_max_width: 1920
   output_max_height: 1080
   terminal_update_frames: 90
+
 database:
   enabled_env: DB_ENABLED
+  host_env: DB_HOST
+  port_env: DB_PORT
+  name_env: DB_NAME
+  user_env: DB_USER
+  password_env: DB_PASSWORD
+  schema_reference: database/schema_reference.sql
+  create_schema_at_runtime: false
+  write_csv: false
+  write_local_json: false
+
+pallet_zone:
+  zone_code: PALLET_ZONE
+  floor_zone_code: FLOOR
+  missing_frames_to_removed: 35
+  event_cooldown_frames: 10
+  min_assignment_frames: 3
+
 detection_stability:
   enabled: true
   min_confirmed_frames: 2
   stale_frames: 8
   smoothing_alpha: 0.65
+
 perception:
   # Preserve stacked boxes whose lower physical detections become occluded but
   # whose newly exposed package QR still identifies a separate master box.
   synthesize_missing_boxes_from_qr: true
+
+slotting:
+  rows: 2
+  columns: 3
+  max_layers_per_slot: 3
+
 capacity:
+  default_box:
+    length_cm: 10.0
+    breadth_cm: 8.0
+    height_cm: 5.0
+    weight_kg: 1.0
+
   default_pallet:
+    max_weight_kg: 50.0
+    max_volume_cm3: 150000.0
+    max_height_cm: 60.0
     max_boxes: 18
+
 dynamic_location:
   min_pallet_overlap_ratio: 0.1
   min_region_overlap_ratio: 0.5
+
   confirmation_frames: 5
+  missing_frames_to_removed: 35
+
   identity_resolution_timeout_frames: 300
   identity_change_confirmation_frames: 3
+
+  # ---------------------------------------------------------------
+  # MOTION INFERENCE
+  # ---------------------------------------------------------------
+  #
+  # Motion is measured from tracked box bounding-box movement.
+  #
+  # The displacement is normalized against the box bbox diagonal
+  # instead of using raw pixels.
+  #
+  # >= motion_enter_ratio
+  #     -> movement evidence
+  #
+  # <= motion_exit_ratio
+  #     -> stationary evidence
+  #
+  # Between the two thresholds
+  #     -> uncertain; preserve the previous motion state
+  # ---------------------------------------------------------------
+
+  motion_window_frames: 5
+  motion_enter_ratio: 0.10
+  motion_exit_ratio: 0.03
+  motion_confirmation_frames: 3
+  stationary_confirmation_frames: 8
+
+  # ---------------------------------------------------------------
+  # FLOOR INFERENCE
+  # ---------------------------------------------------------------
+  #
+  # Floor is NOT inferred merely because a box has no pallet/region.
+  #
+  # A box can become "ON_FLOOR" only when:
+  #
+  # 1. It has no stronger pallet/zone/conveyor/dock association.
+  # 2. It is confirmed stationary.
+  # 3. Its center lies inside one of the approved floor polygons.
+  # 4. The floor evidence remains stable for confirmation_frames.
+  #
+  # Polygon coordinates are normalized:
+  #
+  # x = pixel_x / frame_width
+  # y = pixel_y / frame_height
+  #
+  # This keeps the ROI independent from display/output resizing.
+  # ---------------------------------------------------------------
+
+  floor_inference:
+    enabled: true
+
+    # Resolution of the original camera/video used to define
+    # the physical floor ROI.
+    reference_frame_width: 3840
+    reference_frame_height: 2160
+
+    # Require prolonged positive floor evidence before committing
+    # "ON_FLOOR".
+    confirmation_frames: 30
+
+    # Conservative left-side floor area for this camera setup.
+    #
+    # Do not expand this to the whole image because that could
+    # incorrectly classify conveyor, pallet, dock, or transit areas
+    # as physical floor.
+    polygons:
+      -
+        - [0.130, 0.070]
+        - [0.195, 0.070]
+        - [0.195, 0.950]
+        - [0.125, 0.950]
+
+  # ---------------------------------------------------------------
+  # SEMANTIC REGION CODES
+  # ---------------------------------------------------------------
+
   semantic_region_codes:
-    # Camera/scene mapping: this setup has one conveyor. Keep its database
-    # master code in configuration, not Python.
+    # Camera/scene mapping: this setup has one conveyor.
+    # Keep its database master code in configuration, not Python.
     conveyor_belt: CONVEYOR_01

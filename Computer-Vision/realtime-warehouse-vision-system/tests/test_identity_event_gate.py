@@ -78,7 +78,7 @@ class PendingIdentityEventTests(unittest.TestCase):
         )
 
         self.assertEqual(len(events), 1)
-        self.assertEqual(events[0].event_type, EventType.STACK)
+        self.assertEqual(events[0].event_type, EventType.ADD)
         self.assertEqual(events[0].box_code, "BOX_468")
         self.assertEqual(events[0].confidence_score, 0.73)
         self.assertTrue(events[0].qr_read_success)
@@ -133,7 +133,7 @@ class PendingIdentityEventTests(unittest.TestCase):
         events = self.engine.update([self.zone, self.pallet, pallet_box])
 
         self.assertEqual(len(events), 1)
-        self.assertEqual(events[0].event_type, EventType.STACK)
+        self.assertEqual(events[0].event_type, EventType.ADD)
         self.assertEqual(events[0].box_code, "BOX_500")
         self.assertEqual(events[0].from_zone_code, "conveyor_belt")
         self.assertEqual(events[0].to_zone_code, "ZONE_04")
@@ -192,13 +192,13 @@ class StackedBoxIdentityTests(unittest.TestCase):
         events.extend(self._stack_box("BOX_120"))
         events.extend(self._stack_box("BOX_305"))
 
-        stacked_codes = [
+        add_codes = [
             event.box_code
             for event in events
-            if event.event_type == EventType.STACK
+            if event.event_type == EventType.ADD
         ]
         self.assertEqual(
-            stacked_codes,
+            add_codes,
             ["BOX_468", "BOX_500", "BOX_120", "BOX_305"],
         )
         self.assertEqual(
@@ -224,21 +224,21 @@ class StackedBoxIdentityTests(unittest.TestCase):
             track_id=40,
             qr_value="BOX_305",
         )
-        dock_arrival_events = self.engine.update([dock, self.pallet, top_box])
+        dispatch_events = self.engine.update([dock, self.pallet, top_box])
 
         self.assertEqual(
             {
                 event.box_code
-                for event in dock_arrival_events
-                if event.event_type == EventType.DOCK_ARRIVAL
+                for event in dispatch_events
+                if event.event_type == EventType.DISPATCH
             },
             {"BOX_468", "BOX_500", "BOX_120", "BOX_305"},
         )
         self.assertTrue(
-            all(event.qr_read_success for event in dock_arrival_events)
+            all(event.qr_read_success for event in dispatch_events)
         )
         self.assertTrue(
-            all(event.confidence_score == 0.99 for event in dock_arrival_events)
+            all(event.confidence_score == 0.99 for event in dispatch_events)
         )
 
     def test_single_conflicting_qr_does_not_create_false_box(self) -> None:
@@ -329,7 +329,7 @@ class EventEvidenceTests(unittest.TestCase):
         self.assertEqual(events[0].confidence_score, 0.75)
         self.assertTrue(events[0].qr_read_success)
 
-    def test_hidden_box_dock_arrival_uses_current_pallet_and_dock_evidence(self) -> None:
+    def test_hidden_box_dispatch_uses_current_pallet_and_dock_evidence(self) -> None:
         engine = PalletZoneEngine(
             {
                 "dynamic_location": {
@@ -391,23 +391,18 @@ class EventEvidenceTests(unittest.TestCase):
         )
         events = engine.update([dock, moving_pallet, visible_upper_box])
 
-        dock_arrival_events = [
-            event
-            for event in events
-            if event.event_type == EventType.DOCK_ARRIVAL
+        dispatch_events = [
+            event for event in events if event.event_type == EventType.DISPATCH
         ]
         self.assertEqual(
-            {event.box_code for event in dock_arrival_events},
+            {event.box_code for event in dispatch_events},
             {"BOX_468", "BOX_500"},
         )
         self.assertTrue(
-            all(
-                event.confidence_score == 0.60
-                for event in dock_arrival_events
-            )
+            all(event.confidence_score == 0.60 for event in dispatch_events)
         )
         self.assertTrue(
-            all(event.qr_read_success for event in dock_arrival_events)
+            all(event.qr_read_success for event in dispatch_events)
         )
 
 

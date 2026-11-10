@@ -1,0 +1,82 @@
+blueprint:
+  image: "docs/blueprint/static_polygons_definition.png"
+  width_px: 1440
+  height_px: 768
+
+zones:
+  floor:
+    zone_code: "FLOOR"
+    display_name: "Floor"
+    db_zone_name: "Floor"
+    enabled: true
+    polygon:
+      - [190, 28]
+      - [1128, 28]
+      - [1382, 738]
+      - [327, 738]
+      - [327, 506]
+      - [190, 506]
+
+  conveyor_zone:
+    zone_code: "CONVEYOR_ZONE"
+    display_name: "Conveyor Zone"
+    db_zone_name: "Conveyor Zone"
+    enabled: true
+    polygon:
+      - [548, 108]
+      - [821, 42]
+      - [1115, 43]
+      - [1120, 120]
+      - [1008, 137]
+      - [778, 145]
+      - [775, 184]
+      - [735, 235]
+      - [781, 322]
+      - [782, 449]
+      - [724, 449]
+      - [723, 674]
+      - [601, 674]
+      - [580, 508]
+      - [498, 508]
+      - [498, 219]
+      - [548, 218]
+
+  pallet_zone:
+    zone_code: "PALLET_ZONE"
+    display_name: "Pallet Zone"
+    db_zone_name: "Pallet Zone"
+    enabled: true
+    polygon:
+      - [798, 154]
+      - [1146, 154]
+      - [1146, 470]
+      - [797, 470]
+
+  dock_zone:
+    zone_code: "DOCK_ZONE"
+    display_name: "Dock Zone"
+    db_zone_name: "Dock Zone"
+    enabled: true
+    polygon:
+      - [177, 250]
+      - [446, 242]
+      - [447, 492]
+      - [177, 492]
+
+  stocking_area:
+    zone_code: "STOCKING_AREA"
+    display_name: "Stocking Area"
+    db_zone_name: "Stocking Area"
+    enabled: true
+    polygon:
+      - [822, 487]
+      - [1283, 487]
+      - [1380, 729]
+      - [822, 729]
+
+  truck_loading:
+    zone_code: "TRUCK_LOADING"
+    display_name: "Truck Loading"
+    db_zone_name: "Truck Loading"
+    enabled: false
+    polygon: []

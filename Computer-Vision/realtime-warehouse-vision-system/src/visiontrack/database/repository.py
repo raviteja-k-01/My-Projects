@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from contextlib import closing
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from visiontrack.database.connection import DatabaseConnectionFactory
 from visiontrack.identity import canonicalize_identity
@@ -66,7 +66,10 @@ class VisionTrackRepository:
                             yolo_imgsz,
                         ),
                     )
-                    run_id = int(cursor.lastrowid)
+                    lastrowid = cursor.lastrowid
+                    if lastrowid is None:
+                        raise RuntimeError("Failed to retrieve last row ID from video processing runs insert")
+                    run_id = int(lastrowid)
                     connection.commit()
                     return run_id
                 except Exception:
@@ -221,7 +224,7 @@ class VisionTrackRepository:
             box
             for box in boxes.values()
             if not self._is_temporary_identity(box.box_code)
-            and not self._is_temporary_identity(box.current_pallet_code)
+            and not self._is_temporary_identity(box.current_pallet_code or "")
         ]
 
         permanent_pallets = [
@@ -435,7 +438,11 @@ class VisionTrackRepository:
                         "SELECT COUNT(*) FROM video_events WHERE run_id = %s",
                         (run_id,),
                     )
-                    total_events = int(cursor.fetchone()[0])
+                    row = cursor.fetchone()
+                    if row is None:
+                        total_events = 0
+                    else:
+                        total_events = int(cast(int, row[0]))  # type: ignore[index]
 
                     metric_values: dict[str, Any] = dict(metrics or {})
                     metric_values.update(
@@ -460,7 +467,9 @@ class VisionTrackRepository:
                         (run_id,),
                     )
 
-                    for event_type, event_count in cursor.fetchall():
+                    for row in cursor.fetchall():
+                        event_type = cast(str, row[0])  # type: ignore[index]
+                        event_count = cast(int, row[1])  # type: ignore[index]
                         metric_values[f"event_count_{event_type}"] = int(event_count)
 
                     self._insert_metrics(cursor, run_id, metric_values)
@@ -559,16 +568,19 @@ class VisionTrackRepository:
         if not values:
             return set()
 
-        allowed = {
-            ("boxes", "box_code"),
-            ("pallets", "pallet_code"),
+        allowed: dict[str, str] = {
+            "boxes": "box_code",
+            "pallets": "pallet_code",
         }
-        if (table, column) not in allowed:
+        if table not in allowed or allowed[table] != column:
             raise ValueError("Unsupported database identity lookup")
 
+        # Column names are controlled by whitelist, safe for dynamic SQL
+        safe_column: str = column
+        safe_table: str = table
         placeholders = ", ".join(["%s"] * len(values))
         cursor.execute(
-            f"SELECT {column} FROM {table} WHERE {column} IN ({placeholders})",
+            f"SELECT {safe_column} FROM {safe_table} WHERE {safe_column} IN ({placeholders})",
             tuple(sorted(values)),
         )
         return {str(row[0]) for row in cursor.fetchall()}
@@ -578,15 +590,14 @@ class VisionTrackRepository:
         if not values:
             return {}
         placeholders = ", ".join(["%s"] * len(values))
-        cursor.execute(
-            f"""
+        # Column and table names are database constants, safe for dynamic SQL
+        query = f"""
             SELECT box_code, length_cm, breadth_cm, height_cm,
                    weight_kg, volume_cm3
             FROM boxes
             WHERE box_code IN ({placeholders})
-            """,
-            tuple(sorted(values)),
-        )
+            """
+        cursor.execute(query, tuple(sorted(values)))
         return {
             str(row[0]): {
                 "length_cm": row[1],
@@ -603,14 +614,13 @@ class VisionTrackRepository:
         if not values:
             return {}
         placeholders = ", ".join(["%s"] * len(values))
-        cursor.execute(
-            f"""
+        # Column and table names are database constants, safe for dynamic SQL
+        query = f"""
             SELECT pallet_code, max_weight_kg, max_volume_cm3, max_height_cm
             FROM pallets
             WHERE pallet_code IN ({placeholders})
-            """,
-            tuple(sorted(values)),
-        )
+            """
+        cursor.execute(query, tuple(sorted(values)))
         return {
             str(row[0]): {
                 "max_weight_kg": row[1],

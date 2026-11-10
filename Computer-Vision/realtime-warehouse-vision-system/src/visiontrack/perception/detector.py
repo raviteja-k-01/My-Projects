@@ -30,6 +30,13 @@ class Detector:
         self.device = self._select_device(profile.device)
         self.device_label = "cuda:0" if self.device == "0" else self.device
 
+    def reset_tracking(self) -> None:
+        predictor = self.model.predictor
+        for tracker in getattr(predictor, "trackers", ()):
+            tracker.reset()
+        if predictor is not None:
+            predictor.results = None
+
     def track_objects(self, frame: Any) -> list[RawObservation]:
         frame_height, frame_width = frame.shape[:2]
         frame_area = max(float(frame_width * frame_height), 1.0)
@@ -53,6 +60,8 @@ class Detector:
         if boxes is None:
             return observations
 
+        # Transfer the batch once instead of synchronizing CUDA for each box.
+        boxes = boxes.cpu()
         for box in boxes:
             class_id = int(box.cls[0])
             raw_name = str(self.names.get(class_id, class_id))

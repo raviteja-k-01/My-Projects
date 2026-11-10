@@ -9,12 +9,10 @@ tables are never replaced unless -Reset is explicitly supplied.
 #>
 [CmdletBinding()]
 param(
-    [string]$Database = "visiontrack_local",
-    [string]$SnapshotPath = "database\seeds\visiontrack_demo.sql",
-    [string[]]$MigrationPaths = @(
-        "database\migrations\002_add_event_processor_fields.sql",
-        "database\migrations\003_lifecycle_processor_indexes.sql"
-    ),
+   [string]$SchemaPath = "database\schema\visiontrack_schema.sql",
+[string]$SeedPath = "database\seeds\pre_inference_503_boxes.sql",
+[string]$MasterBoxMigrationPath = "database\migrations\001_extend_box_master_to_1000.sql",
+[string]$EventProcessorMigrationPath = "database\migrations\002_add_event_processor_fields.sql",
     [switch]$Reset
 )
 
@@ -26,7 +24,12 @@ if ($Database -notmatch "^[A-Za-z0-9_]+$") {
     throw "Database must contain only letters, numbers, and underscores."
 }
 
-foreach ($Path in @($SnapshotPath) + $MigrationPaths) {
+foreach ($Path in @(
+    $SchemaPath,
+    $SeedPath,
+    $MasterBoxMigrationPath,
+    $EventProcessorMigrationPath
+)) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         throw "Required SQL file was not found: $Path"
     }
@@ -119,30 +122,29 @@ if ([int]$DatabaseExists -eq 0) {
 
 $UseStatement = 'USE `' + $Database + '`;'
 $UsePattern = '(?im)^\s*USE\s+`[^`]+`;\s*$'
-$CreateStatement = (
-    'CREATE DATABASE IF NOT EXISTS `' + $Database + '` ' +
-    'CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;'
-)
-$CreatePattern = '(?im)^\s*CREATE DATABASE\b.*;\s*$'
 
-$Snapshot = Get-Content -LiteralPath $SnapshotPath -Raw
-$Snapshot = [regex]::Replace($Snapshot, $CreatePattern, $CreateStatement, 1)
-$Snapshot = [regex]::Replace($Snapshot, $UsePattern, $UseStatement, 1)
-$Snapshot | & $MySql.Source @ConnectionArguments
+$Schema = Get-Content -LiteralPath $SchemaPath -Raw
+$Schema = [regex]::Replace($Schema, $UsePattern, $UseStatement, 1)
+$Schema | & $MySql.Source @ConnectionArguments
 if ($LASTEXITCODE -ne 0) {
-    throw "Demo database import failed for $Database."
+    throw "Schema import failed for $Database."
 }
 
-foreach ($MigrationPath in $MigrationPaths) {
-    $Migration = Get-Content -LiteralPath $MigrationPath -Raw
-    ($UseStatement + [Environment]::NewLine + $Migration) |
-        & $MySql.Source @ConnectionArguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "Migration failed: $MigrationPath"
-    }
+$Seed = Get-Content -LiteralPath $SeedPath -Raw
+$Seed = [regex]::Replace($Seed, $UsePattern, $UseStatement, 1)
+$Seed | & $MySql.Source @ConnectionArguments
+if ($LASTEXITCODE -ne 0) {
+    throw "Seed import failed for $Database."
 }
 
-Write-Host "Realtime Warehouse Vision demo database ready: $Database" -ForegroundColor Green
+$MasterBoxMigration = Get-Content -LiteralPath $MasterBoxMigrationPath -Raw
+($UseStatement + [Environment]::NewLine + $MasterBoxMigration) |
+    & $MySql.Source @ConnectionArguments
+if ($LASTEXITCODE -ne 0) {
+    throw "Master box extension failed for $Database."
+}
+
+Write-Host "Local VisionTrack seed completed: $Database" -ForegroundColor Green
 & $MySql.Source @ConnectionArguments --table -e (
     "SELECT 'boxes' AS item, COUNT(*) AS rows_loaded FROM ``$Database``.boxes " +
     "UNION ALL SELECT 'pallets', COUNT(*) FROM ``$Database``.pallets " +

@@ -589,12 +589,16 @@ class HighQualityVideoWriter:
             "+faststart",
             str(self.path),
         ]
-        self.process = subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL,
-            stderr=self.stderr_file,
-        )
+        try:
+            self.process = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=self.stderr_file,
+            )
+        except OSError:
+            self.stderr_file.close()
+            raise
 
     def write(self, frame) -> None:
         if frame.shape[:2] != (self.height, self.width):
@@ -607,18 +611,28 @@ class HighQualityVideoWriter:
             raise RuntimeError("FFmpeg input pipe is unavailable.")
         try:
             self.process.stdin.write(
-                np.ascontiguousarray(frame, dtype=np.uint8).tobytes()
+                memoryview(np.ascontiguousarray(frame, dtype=np.uint8)).cast("B")
             )
         except BrokenPipeError as exc:
             raise RuntimeError(self._error_message()) from exc
 
     def release(self) -> None:
-        if self.process.stdin is not None and not self.process.stdin.closed:
-            self.process.stdin.close()
-        return_code = self.process.wait()
-        if return_code != 0:
-            raise RuntimeError(self._error_message())
-        self.stderr_file.close()
+        if self.stderr_file.closed:
+            return
+        try:
+            if self.process.stdin is not None and not self.process.stdin.closed:
+                try:
+                    self.process.stdin.close()
+                except BrokenPipeError:
+                    pass
+            if self.process.wait(timeout=60) != 0:
+                raise RuntimeError(self._error_message())
+        except subprocess.TimeoutExpired as exc:
+            self.process.kill()
+            self.process.wait()
+            raise RuntimeError("FFmpeg timed out while finalizing the video.") from exc
+        finally:
+            self.stderr_file.close()
 
     def _error_message(self) -> str:
         self.stderr_file.seek(0)

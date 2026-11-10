@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 import cv2
 import numpy as np
@@ -36,7 +36,7 @@ class QRDecoder:
             if value:
                 decoded.append({"value": value, "bbox": bbox})
 
-        return self._dedupe(decoded)
+        return decoded if self.qr_config.get("preserve_duplicate_reads") else self._dedupe(decoded)
 
     def _decode_crop(self, frame, bbox: tuple[int, int, int, int]) -> str | None:
         height, width = frame.shape[:2]
@@ -72,13 +72,8 @@ class QRDecoder:
         return None
 
     @staticmethod
-    def _crop_variants(crop) -> list:
-        variants = []
-
-        def add_variant(image) -> None:
-            variants.append(image)
-
-        add_variant(crop)
+    def _crop_variants(crop) -> Iterator[np.ndarray]:
+        yield crop
 
         border = max(16, int(min(crop.shape[:2]) * 0.18))
         bordered = cv2.copyMakeBorder(
@@ -90,27 +85,27 @@ class QRDecoder:
             cv2.BORDER_CONSTANT,
             value=(255, 255, 255),
         )
-        add_variant(bordered)
+        yield bordered
 
-        for image in list(variants):
+        for image in (crop, bordered):
             min_side = min(image.shape[:2])
             if min_side < 420:
                 scale = max(2, int(round(420 / max(min_side, 1))))
-                add_variant(cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC))
+                yield cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
 
         gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-        add_variant(cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR))
+        yield cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
-        add_variant(cv2.cvtColor(clahe, cv2.COLOR_GRAY2BGR))
+        yield cv2.cvtColor(clahe, cv2.COLOR_GRAY2BGR)
 
         sharpen_kernel = np.array(((0, -1, 0), (-1, 5, -1), (0, -1, 0)), dtype="float32")
         sharpened = cv2.filter2D(crop, -1, sharpen_kernel)
-        add_variant(sharpened)
+        yield sharpened
 
         blur = cv2.GaussianBlur(gray, (3, 3), 0)
         _, threshold = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        add_variant(cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR))
+        yield cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
 
         adaptive = cv2.adaptiveThreshold(
             gray,
@@ -120,8 +115,7 @@ class QRDecoder:
             31,
             5,
         )
-        add_variant(cv2.cvtColor(adaptive, cv2.COLOR_GRAY2BGR))
-        return variants
+        yield cv2.cvtColor(adaptive, cv2.COLOR_GRAY2BGR)
 
     def _decode_crop_with_pyzbar(self, crop) -> str | None:
         if self.pyzbar_decode is None:

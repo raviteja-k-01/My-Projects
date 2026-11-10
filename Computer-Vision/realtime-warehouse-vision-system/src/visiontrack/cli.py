@@ -2122,12 +2122,7 @@ def main() -> None:
 
             print(
                 "CV run complete. NEW video_events are ready "
-                "for the lifecycle worker."
-            )
-
-            print(
-                "Next command   : python -m visiontrack events "
-                f"--database {settings.database.target} --once"
+                "for event_processor.py."
             )
 
             run_logger.info(

@@ -1,26 +1,23 @@
 [build-system]
-requires = ["setuptools>=75", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "realtime-warehouse-vision-system"
-version = "1.1.0"
-description = "Realtime warehouse vision, lifecycle processing, MySQL persistence, and operations dashboard"
-requires-python = ">=3.10"
+version = "1.0.0"
+description = "Real-time warehouse vision system using YOLO, QR identification, tracking, warehouse event logic, MySQL, and Streamlit."
 readme = "README.md"
+requires-python = ">=3.10"
 
 [project.scripts]
-warehouse-vision = "visiontrack.main:main"
+visiontrack = "visiontrack.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
 
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
-
-[tool.ruff.format]
-line-ending = "lf"
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

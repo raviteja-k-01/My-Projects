@@ -18,6 +18,9 @@ def create_parser() -> argparse.ArgumentParser:
         help="Run the existing video inference CLI.",
     )
 
+    monitor = commands.add_parser("monitor", help="Open the VisionTrack 2.0 PostgreSQL monitor.")
+    monitor.add_argument("--port", type=int, default=8501)
+
     dashboard = commands.add_parser(
         "dashboard",
         help="Open Sarfaraz's read-only Streamlit dashboard.",
@@ -50,6 +53,24 @@ def create_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = create_parser()
     arguments, passthrough = parser.parse_known_args(argv)
+
+    if arguments.command == "monitor":
+        if passthrough:
+            parser.error("unrecognized monitor arguments: " + " ".join(passthrough))
+        from pathlib import Path
+        import subprocess
+
+        app = Path(__file__).with_name("dashboard") / "monitor_app.py"
+        return subprocess.call([
+            sys.executable, "-m", "streamlit", "run", str(app),
+            "--server.address", "127.0.0.1", "--server.port", str(arguments.port),
+            "--browser.gatherUsageStats", "false", "--client.toolbarMode", "minimal",
+            "--theme.base", "dark", "--theme.primaryColor", "#35d5c0",
+            "--theme.backgroundColor", "#0b1320", "--theme.secondaryBackgroundColor", "#162438",
+            "--theme.textColor", "#edf4fc", "--theme.baseFontSize", "17",
+            "--theme.sidebar.backgroundColor", "#111d30",
+            "--theme.sidebar.secondaryBackgroundColor", "#1c3048",
+        ])
 
     if arguments.command == "dashboard":
         if passthrough:
