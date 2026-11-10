@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Transfer Money</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #1d2671, #c33764);
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+
+        .box {
+            background: white;
+            width: 380px;
+            margin: 90px auto;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 90%;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 25px;
+            background: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #117a8b;
+        }
+
+        .msg {
+            margin-top: 15px;
+            font-weight: bold;
+            color: green;
+        }
+
+        .back {
+            display: inline-block;
+            margin-top: 18px;
+            text-decoration: none;
+            padding: 8px 18px;
+            background: #007bff;
+            color: white;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .back:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>Transfer Money</h2>
+
+    {% if message %}
+        <p class="msg">{{ message }}</p>
+    {% endif %}
+
+    <form method="POST" onkeydown="return event.key !== 'Enter';">
+        <input type="number" name="to_account" placeholder="Receiver Account Number" required>
+        <input type="number" name="amount" placeholder="Amount to Transfer" required>
+        <button type="submit">Transfer</button>
+    </form>
+
+    <a href="/dashboard" class="back">Back to Dashboard</a>
+</div>
+
+</body>
+</html>

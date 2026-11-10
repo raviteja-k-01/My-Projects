@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Statement</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: linear-gradient(135deg, #1d2671, #c33764);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .box {
+            background: #ffffff;
+            width: 750px;
+            padding: 30px;
+            border-radius: 14px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        th {
+            background: #007bff;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f2f2f2;
+        }
+
+        .credit {
+            color: green;
+            font-weight: bold;
+        }
+
+        .debit {
+            color: red;
+            font-weight: bold;
+        }
+
+        .back {
+            display: inline-block;
+            margin-top: 20px;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .back:hover {
+            background: #0056b3;
+        }
+
+        .empty {
+            margin-top: 15px;
+            color: #999;
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>Mini Statement</h2>
+
+    {% if statement %}
+        <table>
+            <tr>
+                <th>Txn ID</th>
+                <th>Account No</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Date & Time</th>
+            </tr>
+
+            {% for tx in statement %}
+            <tr>
+                <td>{{ tx[0] }}</td>
+                <td>{{ tx[1] }}</td>
+
+                <td class="{% if 'WITHDRAW' in tx[2].upper() %}debit{% else %}credit{% endif %}">
+                    {{ tx[2] }}
+                </td>
+
+                <td>₹ {{ tx[3] }}</td>
+                <td>{{ tx[4].strftime('%d-%m-%Y %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p class="empty">No transactions found</p>
+    {% endif %}
+
+    <a href="/dashboard" class="back">Back to Dashboard</a>
+</div>
+
+</body>
+</html>

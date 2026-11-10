@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Account Balance</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #1d2671, #c33764);
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+
+        .box {
+            background: white;
+            width: 350px;
+            margin: 100px auto;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .balance {
+            font-size: 22px;
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 25px;
+        }
+
+        a {
+            display: inline-block;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        a:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>Your Balance</h2>
+
+    <div class="balance">
+        ₹ {{ balance }}
+    </div>
+
+    <a href="/dashboard">Back to Dashboard</a>
+</div>
+
+</body>
+</html>

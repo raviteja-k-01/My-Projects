@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ATM Dashboard</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: linear-gradient(135deg, #1d2671, #c33764);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dashboard {
+            background: #ffffff;
+            width: 380px;
+            padding: 30px;
+            border-radius: 14px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+            text-align: center;
+        }
+
+        .dashboard h2 {
+            margin-bottom: 25px;
+            color: #333;
+        }
+
+        .menu a {
+            display: block;
+            text-decoration: none;
+            padding: 12px;
+            margin: 10px 0;
+            background: #007bff;
+            color: #fff;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .menu a:hover {
+            background: #0056b3;
+            transform: scale(1.03);
+        }
+
+        .menu a.logout {
+            background: #dc3545;
+        }
+
+        .menu a.logout:hover {
+            background: #b02a37;
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #777;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="dashboard">
+    <h2>Welcome to Codegnan ATM</h2>
+
+    <div class="menu">
+        <a href="/balance">Check Balance</a>
+        <a href="/withdraw">Withdraw Money</a>
+        <a href="/deposit">Deposit Money</a>
+        <a href="/transfer">Transfer Money</a>
+        <a href="/ministatement">Mini Statement</a>
+        <a href="/logout" class="logout">Logout</a>
+    </div>
+
+    <div class="footer">
+        Secure Banking System © 2025
+    </div>
+</div>
+
+</body>
+</html>
