@@ -1,0 +1,11 @@
+@'
+venv/
+.venv/
+__pycache__/
+*.pyc
+weights/
+*.pth
+.env
+.env.*
+'@ | Set-Content "$dest\.gitignore"
+data/test.jpg
