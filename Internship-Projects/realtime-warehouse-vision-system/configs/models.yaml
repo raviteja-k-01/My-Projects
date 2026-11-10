@@ -1,0 +1,58 @@
+model_registry:
+  discovery_dir: models
+  default_model_key: six_class_final
+  class_aliases: {}
+  models:
+    six_class_final:
+      path: models/six_class_final.pt
+      enabled: true
+      description: Active six-class VisionTrack detection model
+      conf: 0.2
+      iou: 0.5
+      imgsz: 1280
+      tracker: bytetrack.yaml
+      qr:
+        use_pyzbar: true
+        box_prefixes:
+        - CARTON_
+        - BOX_
+        - PKG_
+        pallet_prefixes:
+        - PALLET_
+        - P_
+      class_confidence:
+        box: 0.32
+        pallet: 0.3
+        qr_code: 0.2
+        conveyor_belt: 0.2
+        dock: 0.2
+        zone: 0.2
+      max_area_ratio:
+        box: 0.35
+        pallet: 0.85
+        qr_code: 0.2
+    best:
+      path: models/best.pt
+      enabled: true
+      description: Previous warehouse carton, pallet, and QR model
+      conf: 0.2
+      iou: 0.5
+      imgsz: 640
+      tracker: bytetrack.yaml
+      qr:
+        use_pyzbar: false
+        box_prefixes:
+        - CARTON_
+        - BOX_
+        - PKG_
+        pallet_prefixes:
+        - PALLET_
+        - P_
+      class_confidence:
+        box: 0.32
+        pallet: 0.3
+        qr_code: 0.2
+      max_area_ratio:
+        box: 0.35
+        pallet: 0.85
+        qr_code: 0.2

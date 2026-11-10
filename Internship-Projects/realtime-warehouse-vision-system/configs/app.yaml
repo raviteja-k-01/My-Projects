@@ -1,0 +1,36 @@
+project:
+  name: Realtime Warehouse Vision System
+  active_scope: realtime_warehouse_lifecycle
+runtime:
+  default_model_key: six_class_final
+  display_window_name: VisionTrack Warehouse Monitor
+  input_video_dir: data/input_videos
+  display_max_width: 1280
+  display_max_height: 820
+  output_max_width: 1920
+  output_max_height: 1080
+  terminal_update_frames: 90
+database:
+  enabled_env: DB_ENABLED
+detection_stability:
+  enabled: true
+  min_confirmed_frames: 2
+  stale_frames: 8
+  smoothing_alpha: 0.65
+perception:
+  # Preserve stacked boxes whose lower physical detections become occluded but
+  # whose newly exposed package QR still identifies a separate master box.
+  synthesize_missing_boxes_from_qr: true
+capacity:
+  default_pallet:
+    max_boxes: 18
+dynamic_location:
+  min_pallet_overlap_ratio: 0.1
+  min_region_overlap_ratio: 0.5
+  confirmation_frames: 5
+  identity_resolution_timeout_frames: 300
+  identity_change_confirmation_frames: 3
+  semantic_region_codes:
+    # Camera/scene mapping: this setup has one conveyor. Keep its database
+    # master code in configuration, not Python.
+    conveyor_belt: CONVEYOR_01
