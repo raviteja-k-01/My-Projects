@@ -1,6 +1,6 @@
-# VisionTrack 2.0 — AI-Powered Warehouse Monitoring
+# VisionTrack  — AI-Powered Warehouse Monitoring
 
-**VisionTrack 2.0** is a Python-based warehouse video monitoring application that combines object detection, object tracking, QR-code identification, pallet association, warehouse movement events, PostgreSQL persistence, and a Streamlit operations dashboard.
+**VisionTrack ** is a Python-based warehouse video monitoring application that combines object detection, object tracking, QR-code identification, pallet association, warehouse movement events, PostgreSQL persistence, and a Streamlit operations dashboard.
 
 It processes **uploaded, prerecorded warehouse videos** with a live-style annotated preview. It is **not a live CCTV-streaming system**.
 
