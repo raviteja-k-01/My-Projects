@@ -1,173 +1,61 @@
-VisionTrack — AI-Powered Warehouse Monitoring
+# VisionTrack — AI-Powered Warehouse Monitoring
 
-A computer vision application that detects, tracks, and records warehouse inventory movements from video footage.
+VisionTrack helps turn warehouse video into a record of **which boxes were seen, where they were observed, and how they moved**. It combines object detection, QR identification, tracking, and warehouse movement logic in a single application.
 
-The Problem
+Upload an MP4, follow the annotated preview as it processes, and review the results in a Streamlit dashboard. The application works with **prerecorded footage**, not a live CCTV feed.
 
-Warehouse cameras capture boxes moving between pallets, zones, and loading docks. But reviewing footage manually to identify objects and understand their movements is time-consuming.
+## What it does
 
-VisionTrack makes warehouse footage searchable and easier to review by combining object detection, tracking, QR-code identification, movement-event processing, and a database-backed dashboard.
+- **Detects and tracks:** A fine-tuned, six-class YOLOv8 model detects boxes, pallets, QR codes, conveyors, docks, and zones. ByteTrack follows detections across frames.
+- **Identifies and locates:** QR decoding helps identify boxes. Spatial and temporal logic associates them with pallets and detected warehouse regions.
+- **Records movements:** The event engine records observations such as zone transfers and dock arrivals, while unresolved identities remain available for review.
+- **Makes footage reviewable:** PostgreSQL stores run records and events; Streamlit shows inventory, movement history, exceptions, and analytics. An annotated MP4 can be downloaded after processing.
 
-What VisionTrack Does
+## Application screenshots
 
-Upload a warehouse video and let the system process it frame by frame.
+### Live monitoring
+![Annotated warehouse footage in VisionTrack](docs/screenshots/live-monitoring.png)
 
-- Object Detection: Fine-tuned YOLOv8 model detecting boxes, pallets, QR codes, conveyor belts, docks, and zones.
-- Object Tracking: ByteTrack maintains object tracks across video frames.
-- QR Identification: Identifies boxes through QR codes, with caching to avoid repeated decoding.
-- Pallet Association: Links detected boxes to pallets using spatial and temporal information.
-- Movement Detection: Records events such as "ADD", "MOVE", "ZONE_TRANSFER", and "DOCK_ARRIVAL".
-- PostgreSQL Storage: Stores processing runs, object records, movement events, and metrics.
-- Interactive Dashboard: Explore inventory, movement history, exceptions, and analytics.
-- Video Export: Download annotated MP4 footage for reviewing detections and movements.
+### Processing progress
+![Frame count, progress and processing speed](docs/screenshots/processing-status.png)
 
-Application Preview
+### Analytics
+![Inventory and movement analytics](docs/screenshots/analytics.png)
 
-Live Monitoring
+### Movement timeline
+![Movement events along the video timeline](docs/screenshots/movement-timeline.png)
 
-Upload footage and monitor the annotated video while processing.
+### Exceptions
+![Unresolved tracks and identity exceptions](docs/screenshots/exceptions.png)
 
-"Live Monitoring" (docs/screenshots/live-monitoring.png)
+## Technology
 
-Processing Status
+**Python · YOLOv8 · PyTorch · OpenCV · ByteTrack · Pyzbar · PostgreSQL · Streamlit · Plotly · FFmpeg**
 
-Track processing progress, frame counts, and measured FPS.
+The pipeline decodes footage, detects and tracks objects, resolves available QR identities, associates boxes with pallets and locations, then writes movement records and annotated video output.
 
-"Processing Status" (docs/screenshots/processing-status.png)
+## Run locally
 
-Analytics
+Requires **Python 3.11**, **PostgreSQL**, **FFmpeg**, and the compatible YOLOv8 checkpoint (not included in the repository).
 
-View recorded inventory counts, movement events, and run-level insights.
+From the project directory in Windows CMD:
 
-"Analytics Dashboard" (docs/screenshots/analytics.png)
-
-Movement Timeline
-
-Review detected movement events at their corresponding video timestamps.
-
-"Movement Timeline" (docs/screenshots/movement-timeline.png)
-
-Exceptions
-
-Identify unresolved object tracks and movements with insufficient identity evidence.
-
-"Exceptions Dashboard" (docs/screenshots/exceptions.png)
-
-How It Works
-
-Warehouse Video (MP4)
-         |
-         v
-YOLOv8 Object Detection
-         |
-         v
-ByteTrack + QR Recognition
-         |
-         v
-Box-to-Pallet & Location Association
-         |
-         v
-Warehouse Movement Event Engine
-         |
-         +---------------------+
-         |                     |
-         v                     v
-   PostgreSQL            Annotated Video
-         |
-         v
-   Streamlit Dashboard
-
-The system uses detected warehouse regions rather than relying exclusively on manually defined camera zones.
-
-Tech Stack
-
-Component| Technologies
-Programming| Python
-Object Detection| YOLOv8, PyTorch, Ultralytics
-Tracking & Image Processing| ByteTrack, OpenCV
-QR Recognition| Pyzbar
-Database| PostgreSQL, Psycopg
-Dashboard| Streamlit, Plotly
-Video Processing| OpenCV, FFmpeg
-Testing| pytest
-
-Getting Started
-
-Requirements
-
-- Python 3.11
-- PostgreSQL
-- FFmpeg available on "PATH"
-- Compatible YOLOv8 model checkpoint
-- NVIDIA CUDA GPU recommended for faster inference
-
-1. Install dependencies
-
-Open Windows CMD in the project directory.
-
+```cmd
 py -3.11 -m venv .venv
-.venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 .venv\Scripts\python.exe -m pip install -e .
-
-2. Configure PostgreSQL
-
-Create your local environment file:
-
 copy .env.example .env
+```
 
-Configure the database connection in ".env":
+Set the `VISIONTRACK_PG_*` connection values in `.env`, create the `visiontrack` PostgreSQL database, and apply `database/migrations/003_postgresql_monitoring.sql`. Place the authorized checkpoint at `models/six_class_final.pt`.
 
-VISIONTRACK_PG_HOST=localhost
-VISIONTRACK_PG_PORT=5432
-VISIONTRACK_PG_DATABASE=visiontrack
-VISIONTRACK_PG_USER=your_database_user
-VISIONTRACK_PG_PASSWORD=your_database_password
-
-Create the "visiontrack" database and apply the applicable PostgreSQL migration in "database/migrations/003_postgresql_monitoring.sql".
-
-Never commit your ".env" file.
-
-3. Add the YOLOv8 model
-
-Place the compatible fine-tuned checkpoint at:
-
-models/six_class_final.pt
-
-Model weights are not included in this repository.
-
-4. Launch VisionTrack
-
+```cmd
 set "PYTHONPATH=%CD%\src"
 .venv\Scripts\python.exe -m visiontrack monitor
+```
 
-Open the Streamlit URL displayed in your terminal.
+Open the Streamlit URL shown in the terminal and upload an MP4.
 
-Upload an MP4 from Live Monitoring, start processing, and explore the recorded results.
+## Notes
 
-Testing
-
-Run the automated tests:
-
-.venv\Scripts\python.exe -m pytest -q
-
-The last reported test run had 44 passing tests and one failing legacy event-engine test.
-
-Performance
-
-VisionTrack reports measured processing FPS for each run. Throughput depends on video resolution, hardware, detection, QR decoding, tracking, and video encoding.
-
-A previous warehouse pipeline recorded a 3.9 → 7.1 FPS improvement on an NVIDIA Tesla T4 after QR-processing optimizations. This is a historical benchmark, not a measured result for the current VisionTrack application.
-
-Current Limitations
-
-- The application processes prerecorded video, not a direct live CCTV feed.
-- Some annotations may overlap in crowded scenes.
-- QR identification and movement events can remain uncertain and require review.
-- The system is a portfolio prototype, not a production-certified warehouse inventory solution.
-
-Project Outcome
-
-VisionTrack brings together computer vision, object tracking, warehouse movement logic, PostgreSQL, and an interactive dashboard in a single application.
-
-Instead of presenting only model detections, it provides a workflow for processing warehouse footage, reviewing object movements, inspecting uncertain observations, and retrieving recorded events.
+Movement records reflect observations from video and may need review when tracking or QR identity is uncertain. Some labels can overlap in crowded scenes. The last reported test run also had one unresolved legacy event-engine test.
