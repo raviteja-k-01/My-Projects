@@ -1,285 +1,173 @@
-# VisionTrack  — AI-Powered Warehouse Monitoring
+VisionTrack — AI-Powered Warehouse Monitoring
 
-**VisionTrack** is a Python-based warehouse video monitoring application that combines object detection, object tracking, QR-code identification, pallet association, warehouse movement events, PostgreSQL persistence, and a Streamlit operations dashboard.
+A computer vision application that detects, tracks, and records warehouse inventory movements from video footage.
 
-It processes **uploaded, prerecorded warehouse videos** with a live-style annotated preview. It is **not a live CCTV-streaming system**.
+The Problem
 
-## Overview
+Warehouse cameras capture boxes moving between pallets, zones, and loading docks. But reviewing footage manually to identify objects and understand their movements is time-consuming.
 
-The system processes warehouse footage to detect boxes, pallets, QR codes, conveyor belts, docks, and zones. It tracks objects across frames, associates boxes with pallets and detected regions, and records warehouse observations and movement events for later review.
+VisionTrack makes warehouse footage searchable and easier to review by combining object detection, tracking, QR-code identification, movement-event processing, and a database-backed dashboard.
 
-The Streamlit interface provides video upload and processing progress, a preview of annotated frames, run history, inventory views, movement timelines, exceptions, analytics, and an annotated MP4 output.
+What VisionTrack Does
 
-## Key Features
+Upload a warehouse video and let the system process it frame by frame.
 
-- **Six-class YOLOv8 detection:** Fine-tuned model for warehouse objects and regions.
-- **Object tracking:** ByteTrack-based frame-to-frame tracking.
-- **QR identification:** OpenCV/Pyzbar decoding, with identity caching to avoid redundant work.
-- **Box-to-pallet association:** Spatial and temporal association of objects with pallets.
-- **Dynamic region awareness:** Conveyor belts, zones, and docks are detected from footage rather than assumed to be fixed camera polygons.
-- **Movement-event processing:** Tracks events such as `ADD`, `MOVE`, `ZONE_TRANSFER`, and `DOCK_ARRIVAL`, with other events supported by the warehouse engine.
-- **PostgreSQL persistence:** Saves processing runs, inventory-related records, movement events, and metrics.
-- **Streamlit dashboard:** Monitoring, inventory, movement history, exceptions, analytics, and run selection.
-- **Annotated video export:** Generates an MP4 with detections and tracking annotations.
-- **Automated tests:** Tests for existing processing and warehouse logic.
+- Object Detection: Fine-tuned YOLOv8 model detecting boxes, pallets, QR codes, conveyor belts, docks, and zones.
+- Object Tracking: ByteTrack maintains object tracks across video frames.
+- QR Identification: Identifies boxes through QR codes, with caching to avoid repeated decoding.
+- Pallet Association: Links detected boxes to pallets using spatial and temporal information.
+- Movement Detection: Records events such as "ADD", "MOVE", "ZONE_TRANSFER", and "DOCK_ARRIVAL".
+- PostgreSQL Storage: Stores processing runs, object records, movement events, and metrics.
+- Interactive Dashboard: Explore inventory, movement history, exceptions, and analytics.
+- Video Export: Download annotated MP4 footage for reviewing detections and movements.
 
-## Detected Classes
+Application Preview
 
-The fine-tuned YOLOv8 model recognizes six classes:
+Live Monitoring
 
-1. Box
-2. Pallet
-3. QR code
-4. Conveyor belt
-5. Dock
-6. Zone
+Upload footage and monitor the annotated video while processing.
 
-## Technology Stack
+"Live Monitoring" (docs/screenshots/live-monitoring.png)
 
-| Layer | Technologies |
-| --- | --- |
-| Language | Python |
-| Detection | YOLOv8, Ultralytics, PyTorch |
-| Tracking and vision | ByteTrack, OpenCV, Pyzbar |
-| Data processing | NumPy, Pandas |
-| Database | PostgreSQL, Psycopg |
-| Dashboard | Streamlit, Plotly |
-| Video export | OpenCV, FFmpeg |
-| Configuration and testing | YAML, python-dotenv, pytest |
+Processing Status
 
-> The repository also contains earlier MySQL-oriented components. **PostgreSQL is the storage backend for the VisionTrack 2.0 monitoring application.**
+Track processing progress, frame counts, and measured FPS.
 
-## Processing Pipeline
+"Processing Status" (docs/screenshots/processing-status.png)
 
-```text
-Uploaded warehouse MP4
+Analytics
+
+View recorded inventory counts, movement events, and run-level insights.
+
+"Analytics Dashboard" (docs/screenshots/analytics.png)
+
+Movement Timeline
+
+Review detected movement events at their corresponding video timestamps.
+
+"Movement Timeline" (docs/screenshots/movement-timeline.png)
+
+Exceptions
+
+Identify unresolved object tracks and movements with insufficient identity evidence.
+
+"Exceptions Dashboard" (docs/screenshots/exceptions.png)
+
+How It Works
+
+Warehouse Video (MP4)
          |
          v
-Frame decoding (OpenCV)
+YOLOv8 Object Detection
          |
          v
-Six-class YOLOv8 detection
+ByteTrack + QR Recognition
          |
          v
-ByteTrack + detection stabilization
+Box-to-Pallet & Location Association
          |
          v
-QR decoding and identity caching
+Warehouse Movement Event Engine
+         |
+         +---------------------+
+         |                     |
+         v                     v
+   PostgreSQL            Annotated Video
          |
          v
-Box/pallet association + dynamic regions
-         |
-         v
-Warehouse event engine
-         |
-         +----------------------------+
-         |                            |
-         v                            v
-PostgreSQL run/event records    Annotated frame/video output
-         |                            |
-         +-------------+--------------+
-                       |
-                       v
-           Streamlit operations dashboard
-```
+   Streamlit Dashboard
 
-## Application Screenshots
+The system uses detected warehouse regions rather than relying exclusively on manually defined camera zones.
 
-### Live Monitoring
+Tech Stack
 
-Uploaded warehouse footage with object detections, tracking annotations, and detected warehouse regions.
+Component| Technologies
+Programming| Python
+Object Detection| YOLOv8, PyTorch, Ultralytics
+Tracking & Image Processing| ByteTrack, OpenCV
+QR Recognition| Pyzbar
+Database| PostgreSQL, Psycopg
+Dashboard| Streamlit, Plotly
+Video Processing| OpenCV, FFmpeg
+Testing| pytest
 
-![VisionTrack 2.0 live monitoring](docs/screenshots/live-monitoring.png)
+Getting Started
 
-### Processing Status
+Requirements
 
-Run progress, processed-frame information, and measured processing speed.
+- Python 3.11
+- PostgreSQL
+- FFmpeg available on "PATH"
+- Compatible YOLOv8 model checkpoint
+- NVIDIA CUDA GPU recommended for faster inference
 
-![VisionTrack 2.0 processing status](docs/screenshots/processing-status.png)
+1. Install dependencies
 
-### Analytics
+Open Windows CMD in the project directory.
 
-Run-level inventory metrics and warehouse movement summaries.
-
-![VisionTrack 2.0 analytics](docs/screenshots/analytics.png)
-
-### Exceptions
-
-Unresolved object tracks and movements requiring additional identity evidence.
-
-![VisionTrack 2.0 exceptions](docs/screenshots/exceptions.png)
-
-### Movement Timeline
-
-Recorded events displayed by their positions in the source video.
-
-![VisionTrack 2.0 movement timeline](docs/screenshots/movement-timeline.png)
-
-## Project Structure
-
-```text
-realtime-warehouse-vision-system/
-├── configs/                     # Model and runtime settings
-├── data/                        # Local input data (where available)
-├── database/
-│   ├── migrations/              # Database migrations, including PostgreSQL monitoring
-│   ├── schema/                  # Database schema files
-│   └── seeds/                   # Local/demo seed data
-├── docs/
-│   └── screenshots/             # Screenshots used in this README
-├── models/                      # Model location; weight files excluded from Git
-├── outputs/                     # Generated videos and logs; excluded from Git
-├── scripts/                     # Utility and launch scripts
-├── src/visiontrack/
-│   ├── association/             # Box, pallet, and region association
-│   ├── config/                  # Configuration loading
-│   ├── dashboard/               # Streamlit monitoring and analytics
-│   ├── database/                # Persistence and database access
-│   ├── geometry/                # Spatial utilities
-│   ├── lifecycle/               # Lifecycle processing
-│   ├── perception/              # Detection, QR decoding, stabilization
-│   ├── pipeline/                # Video processing and monitor worker
-│   ├── warehouse/               # State and movement-event rules
-│   ├── cli.py                   # Command-line interface
-│   └── main.py                  # Application entry point
-├── tests/                       # Automated tests
-├── .env.example                 # Example configuration (no real secrets)
-├── requirements.txt
-└── pyproject.toml
-```
-
-## Requirements
-
-- Python **3.10+** (the project was developed using Python 3.11)
-- PostgreSQL, configured locally or on an accessible server
-- FFmpeg available on `PATH` for annotated MP4 encoding
-- The project's fine-tuned YOLOv8 checkpoint (`models/six_class_final.pt`)
-- An NVIDIA CUDA-capable GPU is recommended for faster inference, but actual speed depends on the hardware and processing workload
-
-## Installation (Windows CMD)
-
-Run these commands from the project root:
-
-```cmd
 py -3.11 -m venv .venv
 .venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 .venv\Scripts\python.exe -m pip install -e .
-```
 
-**CUDA note:** If the PyTorch requirement does not match your GPU/driver environment, install a compatible PyTorch build before running GPU inference. Do not assume every system has the same CUDA configuration.
+2. Configure PostgreSQL
 
-### Environment configuration
+Create your local environment file:
 
-Create a private `.env` file:
-
-```cmd
 copy .env.example .env
-```
 
-Set the PostgreSQL connection variables in `.env`:
+Configure the database connection in ".env":
 
-```dotenv
 VISIONTRACK_PG_HOST=localhost
 VISIONTRACK_PG_PORT=5432
 VISIONTRACK_PG_DATABASE=visiontrack
 VISIONTRACK_PG_USER=your_database_user
 VISIONTRACK_PG_PASSWORD=your_database_password
-```
 
-Create the PostgreSQL database and apply the applicable SQL migrations in `database/migrations/` before starting a fresh installation. The VisionTrack 2.0 monitoring migration is named `003_postgresql_monitoring.sql`. Check migration dependencies and run them in the required order.
+Create the "visiontrack" database and apply the applicable PostgreSQL migration in "database/migrations/003_postgresql_monitoring.sql".
 
-**Never commit `.env`, real credentials, or private database exports.**
+Never commit your ".env" file.
 
-### Model setup
+3. Add the YOLOv8 model
 
-Place the fine-tuned model file at:
+Place the compatible fine-tuned checkpoint at:
 
-```text
 models/six_class_final.pt
-```
 
-Model weights are not included in this repository. Inference requires an authorized copy of the compatible checkpoint.
+Model weights are not included in this repository.
 
-## Run VisionTrack 2.0
+4. Launch VisionTrack
 
-From **Windows CMD** in the project root:
-
-```cmd
 set "PYTHONPATH=%CD%\src"
 .venv\Scripts\python.exe -m visiontrack monitor
-```
 
-Open the local Streamlit URL printed in the terminal. In **Live Monitoring**, upload a warehouse MP4 and start a processing run.
+Open the Streamlit URL displayed in your terminal.
 
-The dashboard displays run progress and annotated preview frames. After completion, review the database-backed inventory and event views and open or download the annotated MP4.
+Upload an MP4 from Live Monitoring, start processing, and explore the recorded results.
 
-> **Note:** The application processes prerecorded videos; the preview simulates live monitoring. Restarting the Streamlit server can terminate an active run.
+Testing
 
-### Video output
+Run the automated tests:
 
-Completed monitoring runs write annotated video under a run-specific directory, such as:
-
-```text
-outputs/monitor/<run-id>/annotated.mp4
-```
-
-Generated videos are local artifacts and are not committed to GitHub.
-
-## Dashboard Sections
-
-- **Live Monitoring:** Video upload, run progress, annotated preview, and output video.
-- **Inventory:** Recorded box/pallet observations and associated locations.
-- **Movement History:** Events logged for a selected run.
-- **Exceptions:** Unresolved tracks and identity-evidence issues.
-- **Analytics:** Run-level metrics, event counts, and movement timelines.
-
-Displayed values depend on the selected run and available PostgreSQL records. A database event is **not** independent proof that the physical movement was interpreted correctly.
-
-## Tests
-
-Run:
-
-```cmd
 .venv\Scripts\python.exe -m pytest -q
-```
 
-**Last reported Codex test run:** `44 passed, 1 failed`. Codex reported that the remaining legacy test expects one event where the existing engine emits both registration and `ADD`. This issue should not be described as a fully passing test suite until it is resolved and rerun.
+The last reported test run had 44 passing tests and one failing legacy event-engine test.
 
-## Performance Notes
+Performance
 
-The app reports processing throughput for each run. End-to-end FPS depends on video resolution, model inference, QR decoding, tracking, database writes, video encoding, and the available GPU/CPU.
+VisionTrack reports measured processing FPS for each run. Throughput depends on video resolution, hardware, detection, QR decoding, tracking, and video encoding.
 
-A **previous pipeline** had a separately reported Tesla T4 benchmark of **3.9 → 7.1 FPS** after QR-processing optimizations. That number **is not a measured Tesla T4 result for VisionTrack 2.0** and should not be used as one.
+A previous warehouse pipeline recorded a 3.9 → 7.1 FPS improvement on an NVIDIA Tesla T4 after QR-processing optimizations. This is a historical benchmark, not a measured result for the current VisionTrack application.
 
-## Known Limitations
+Current Limitations
 
-- Some labels may overlap in crowded annotated frames.
-- Unresolved identities and observed movements require review; event correctness has not been independently validated against every source-video frame.
-- The last reported automated test run included one failing legacy test.
-- This is a portfolio/development application, not a production-certified warehouse inventory system.
+- The application processes prerecorded video, not a direct live CCTV feed.
+- Some annotations may overlap in crowded scenes.
+- QR identification and movement events can remain uncertain and require review.
+- The system is a portfolio prototype, not a production-certified warehouse inventory solution.
 
-## Repository and Data Safety
+Project Outcome
 
-Keep the following out of the public repository:
+VisionTrack brings together computer vision, object tracking, warehouse movement logic, PostgreSQL, and an interactive dashboard in a single application.
 
-```text
-.env
-.venv/
-__pycache__/
-.pytest_cache/
-models/*.pt
-models/*.pth
-models/*.onnx
-models/*.engine
-data/input_videos/
-outputs/
-*.pem
-*.key
-```
-
-Do not publish proprietary internship footage, model weights, customer records, or credentials without permission.
-
-## Project Goal
-
-VisionTrack 2.0 demonstrates an **end-to-end warehouse computer-vision workflow**: six-class object detection, tracking, QR identification, spatial association, movement-event processing, PostgreSQL persistence, annotated video export, and a searchable Streamlit dashboard.
+Instead of presenting only model detections, it provides a workflow for processing warehouse footage, reviewing object movements, inspecting uncertain observations, and retrieving recorded events.
