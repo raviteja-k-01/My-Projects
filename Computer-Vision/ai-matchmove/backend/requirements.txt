@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-multipart
+numpy
+imageio
+pillow
+OpenEXR
+pycolmap==4.2.1
+opencv-python-headless==4.13.0.92

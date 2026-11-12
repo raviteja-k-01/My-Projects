@@ -1,3 +1,5 @@
+import { useLayoutEffect, useRef } from "react";
+
 export default function Timeline({
   frames,
   currentIndex,
@@ -5,7 +7,15 @@ export default function Timeline({
   isPlaying,
   setIsPlaying,
 }) {
-  // BUTTON STYLES
+  const strip = useRef(null);
+  const active = useRef(null);
+  useLayoutEffect(() => {
+    if (!strip.current || !active.current) return;
+    const container = strip.current.getBoundingClientRect();
+    const item = active.current.getBoundingClientRect();
+    if (item.left < container.left) strip.current.scrollLeft += item.left - container.left;
+    else if (item.right > container.right) strip.current.scrollLeft += item.right - container.right;
+  }, [currentIndex, frames]);
   const btn = {
     padding: "6px 10px",
     background: "#222",
@@ -33,7 +43,6 @@ export default function Timeline({
         padding: "8px 16px",
       }}
     >
-      {/* CONTROLS */}
       <div
         style={{
           display: "flex",
@@ -42,8 +51,8 @@ export default function Timeline({
           gap: 10,
         }}
       >
-        {/* FIRST FRAME */}
         <button
+          aria-label="First frame"
           onClick={() => setCurrentIndex(0)}
           style={btn}
           disabled={!frames.length}
@@ -51,8 +60,8 @@ export default function Timeline({
           ⏮
         </button>
 
-        {/* PREV FRAME */}
         <button
+          aria-label="Previous frame"
           onClick={() =>
             setCurrentIndex((prev) => Math.max(prev - 1, 0))
           }
@@ -62,8 +71,8 @@ export default function Timeline({
           ◀
         </button>
 
-        {/* PLAY / PAUSE */}
         <button
+          aria-label={isPlaying ? "Pause" : "Play"}
           onClick={() => setIsPlaying(!isPlaying)}
           style={btnMain}
           disabled={!frames.length}
@@ -71,8 +80,8 @@ export default function Timeline({
           {isPlaying ? "⏸" : "▶"}
         </button>
 
-        {/* NEXT FRAME */}
         <button
+          aria-label="Next frame"
           onClick={() =>
             setCurrentIndex((prev) =>
               Math.min(prev + 1, frames.length - 1)
@@ -84,8 +93,8 @@ export default function Timeline({
           ▶
         </button>
 
-        {/* LAST FRAME */}
         <button
+          aria-label="Last frame"
           onClick={() => setCurrentIndex(frames.length - 1)}
           style={btn}
           disabled={!frames.length}
@@ -93,7 +102,6 @@ export default function Timeline({
           ⏭
         </button>
 
-        {/* FRAME INFO */}
         <div
           style={{
             marginLeft: 20,
@@ -102,12 +110,13 @@ export default function Timeline({
             minWidth: 120,
           }}
         >
-          Frame: {frames.length ? currentIndex + 1 : 0} / {frames.length}
+          Frame: {frames[currentIndex]?.frame_number ?? "–"}
+          {frames.length > 0 && ` (${currentIndex + 1} / ${frames.length})`}
         </div>
       </div>
 
-      {/* FRAME STRIP */}
       <div
+        ref={strip}
         style={{
           display: "flex",
           overflowX: "auto",
@@ -115,9 +124,12 @@ export default function Timeline({
           paddingTop: 6,
         }}
       >
-        {frames.map((_, i) => (
-          <div
-            key={i}
+        {frames.map((frame, i) => (
+          <button
+            ref={i === currentIndex ? active : null}
+            aria-current={i === currentIndex ? "true" : undefined}
+            aria-label={`Go to frame ${frame.frame_number}`}
+            key={frame.url}
             onClick={() => setCurrentIndex(i)}
             style={{
               minWidth: 32,
@@ -132,12 +144,12 @@ export default function Timeline({
               lineHeight: "42px",
               fontSize: 11,
               color: "white",
-              transition: "0.1s",
               userSelect: "none",
+              flexShrink: 0,
             }}
           >
-            {i}
-          </div>
+            {frame.frame_number}
+          </button>
         ))}
       </div>
     </div>

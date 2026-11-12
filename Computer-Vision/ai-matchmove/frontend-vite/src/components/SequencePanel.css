@@ -1,0 +1,14 @@
+.sequence-panel { width: 255px; flex-shrink: 0; box-sizing: border-box; background: #1a1a1a; border-right: 1px solid #333; overflow: auto; padding: 39px 12px 12px; color: #dcdcdc; font-size: 12px; }
+.sequence-panel section, .sequence-panel .metadata { display: flex; flex-direction: column; gap: 7px; }
+.sequence-panel section { padding: 9px 0 12px; border-bottom: 1px solid #333; }
+.sequence-panel h2 { font-size: 13px; margin: 0 0 2px; color: #fff; }
+.sequence-panel label { display: grid; grid-template-columns: 1fr minmax(0, 105px); align-items: center; gap: 5px; }
+.sequence-panel .check { display: flex; }
+.sequence-panel button, .sequence-panel select, .sequence-panel input:not([type="checkbox"]) { background: #282828; border: 1px solid #484848; color: #eee; border-radius: 3px; padding: 5px; font: inherit; min-width: 0; }
+.sequence-panel button:disabled { opacity: .45; }
+.sequence-panel button.primary { color: #06121e; background: #62b5f8; border-color: #62b5f8; font-weight: bold; }
+.sequence-panel a { color: #7dc8ff; }
+.sequence-panel .error { color: #ff9a92; overflow-wrap: anywhere; }
+.sequence-panel .downloads { display: flex; flex-wrap: wrap; gap: 8px; }
+.sequence-panel progress { width: 100%; margin: 5px 0; }
+.sequence-panel .metadata strong { overflow-wrap: anywhere; }

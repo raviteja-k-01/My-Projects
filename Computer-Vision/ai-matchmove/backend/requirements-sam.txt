@@ -1,0 +1,2 @@
+# Install the desired PyTorch wheel first. See README for the verified CPU setup.
+segment-anything==1.0
