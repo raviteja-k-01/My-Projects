@@ -52,3 +52,22 @@ Set **Sequence FPS** to `24000/1001`, upload all nine PNGs, and click **Start Ca
 ## Outputs and Limitations
 
 Outputs include feature tracks, camera and quality JSON, a sparse point cloud, and a Blender package with camera animation and undistorted plates for registered frames. Weak parallax, low texture, or heavy occlusion can prevent a solve. Monocular scale is arbitrary. Foreground proposals need review, and masking can change reconstruction quality in either direction. [Validation results and reproduction commands](VALIDATION.md)
+
+## AI-Generated Concept Illustrations
+
+These visuals illustrate the intended interface and workflow. They are not actual application screenshots or verified reconstruction outputs.
+
+### MatchMove Interface
+Video processing and sequence playback.
+
+![MatchMove Interface](docs/screenshots/matchmove-interface.png)
+
+### Feature Tracking
+Feature observations and camera-motion analysis.
+
+![Feature Tracking](docs/screenshots/feature-tracking.png)
+
+### Blender Reconstruction
+Camera reconstruction and sparse 3D scene visualization.
+
+![Blender Reconstruction](docs/screenshots/blender-reconstruction.png)
