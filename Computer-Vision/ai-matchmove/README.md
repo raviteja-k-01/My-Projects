@@ -1,8 +1,8 @@
-# AI MatchMove â€” Automated Camera Tracking for VFX
+# AI MatchMove — Automated Camera Tracking for VFX
 
 ## The Problem
 
-VFX artists need to recover a live-action cameraâ€™s motion before placing computer-generated elements in a shot. Preparing footage, tracking scene features, and reviewing a camera solve can take substantial manual work. AI MatchMove automates parts of that workflow and produces camera data that artists can inspect and use in Blender.
+VFX artists need to recover a live-action camera’s motion before placing computer-generated elements in a shot. Preparing footage, tracking scene features, and reviewing a camera solve can take substantial manual work. AI MatchMove automates parts of that workflow and produces camera data that artists can inspect and use in Blender.
 
 ## What the Application Does
 
@@ -16,7 +16,7 @@ Python, FastAPI, NumPy, React, JavaScript, OpenCV optical flow, SIFT, SAM ViT-B,
 
 ## How to Run
 
-Use Python 3.12 and FFmpeg on Linux or Ubuntu WSL, and Node.js 22.12 or newer for the frontend. Make sure `ffmpeg` and `ffprobe` are on the backendâ€™s PATH. From the project root, start the backend:
+Use Python 3.12 and FFmpeg on Linux or Ubuntu WSL, and Node.js 22.12 or newer for the frontend. Make sure `ffmpeg` and `ffprobe` are on the backend’s PATH. From the project root, start the backend:
 
 ```sh
 python3 -m venv ~/.venvs/ai-matchmove
@@ -47,7 +47,7 @@ Generate nine synthetic frames in a new directory from the project root:
 python -m backend.demo_reconstruction --frames-only --output backend/data/demo-frames
 ```
 
-Set **Sequence FPS** to `24000/1001`, upload all nine PNGs, and click **Start Camera Solve**. Inspect the result, then choose **Prepare Blender package**. Extract the ZIP and run `import_matchmove.py` in Blenderâ€™s **Scripting** workspace.
+Set **Sequence FPS** to `24000/1001`, upload all nine PNGs, and click **Start Camera Solve**. Inspect the result, then choose **Prepare Blender package**. Extract the ZIP and run `import_matchmove.py` in Blender’s **Scripting** workspace.
 
 ## Outputs and Limitations
 
