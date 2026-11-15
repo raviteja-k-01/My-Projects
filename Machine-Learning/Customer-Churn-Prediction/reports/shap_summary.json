@@ -1,0 +1,10 @@
+{
+  "model_id": "d0adac9947539d1b",
+  "rows_explained": 200,
+  "sample": "First 200 exact-deduplicated rows in the input CSV",
+  "output_units": "Churn=Yes log-odds",
+  "method": "TreeExplainer, tree_path_dependent",
+  "local_plot_row": 0,
+  "additivity_verified": true,
+  "note": "Descriptive explanations of this model, not causal effects or evaluation metrics."
+}

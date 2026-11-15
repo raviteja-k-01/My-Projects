@@ -1,0 +1,126 @@
+{
+  "model_id": "d0adac9947539d1b",
+  "positive_class": "Yes (churn)",
+  "target_encoding": {
+    "No": 0,
+    "Yes": 1
+  },
+  "decision_threshold": 0.5,
+  "random_state": 42,
+  "train_rows": 3242,
+  "test_rows": 811,
+  "train_target_counts": {
+    "No": 2014,
+    "Yes": 1228
+  },
+  "test_target_counts": {
+    "No": 504,
+    "Yes": 307
+  },
+  "overlapping_customers": 0,
+  "evaluation_method": "Exact duplicate removal; stratified 80/20 customer holdout; no tuning",
+  "threshold_selection": "Fixed 0.50 before evaluation; no threshold search",
+  "dataset": {
+    "sha256": "35fb24cbd43c60ad997bf97cc751fdbe32f2167cf8ef18ef0de813ebc1f7bfb1",
+    "raw_rows": 7042,
+    "raw_columns": 21,
+    "feature_columns": [
+      "gender",
+      "SeniorCitizen",
+      "Partner",
+      "Dependents",
+      "tenure",
+      "PhoneService",
+      "MultipleLines",
+      "InternetService",
+      "OnlineSecurity",
+      "OnlineBackup",
+      "DeviceProtection",
+      "TechSupport",
+      "StreamingTV",
+      "StreamingMovies",
+      "Contract",
+      "PaperlessBilling",
+      "PaymentMethod",
+      "MonthlyCharges",
+      "TotalCharges"
+    ],
+    "missing_features": {
+      "gender": 0,
+      "SeniorCitizen": 0,
+      "Partner": 0,
+      "Dependents": 0,
+      "tenure": 0,
+      "PhoneService": 0,
+      "MultipleLines": 0,
+      "InternetService": 0,
+      "OnlineSecurity": 0,
+      "OnlineBackup": 0,
+      "DeviceProtection": 0,
+      "TechSupport": 0,
+      "StreamingTV": 0,
+      "StreamingMovies": 0,
+      "Contract": 0,
+      "PaperlessBilling": 0,
+      "PaymentMethod": 0,
+      "MonthlyCharges": 0,
+      "TotalCharges": 0
+    },
+    "raw_target_counts": {
+      "Yes": 3521,
+      "No": 3521
+    },
+    "exact_duplicates_removed": 2989,
+    "unique_customers": 4053,
+    "unique_target_counts": {
+      "No": 2518,
+      "Yes": 1535
+    }
+  },
+  "python_version": "3.11.9",
+  "package_versions": {
+    "numpy": "1.26.4",
+    "pandas": "2.2.2",
+    "scikit-learn": "1.5.0",
+    "xgboost": "2.1.1",
+    "joblib": "1.4.2",
+    "shap": "0.46.0",
+    "streamlit": "1.39.0",
+    "matplotlib": "3.9.2"
+  },
+  "source_sha256": {
+    "preprocess.py": "2550b191a4470bf3bc3521832f90c56251843381b7a1a35635d5c75f4ea3750c",
+    "train.py": "98c874b587768f7a2d106595374a480edf494d60d777d576d68a463498bc8cc3"
+  },
+  "model_parameters": {
+    "objective": "binary:logistic",
+    "colsample_bytree": 0.8,
+    "enable_categorical": false,
+    "eval_metric": "logloss",
+    "learning_rate": 0.05,
+    "max_depth": 6,
+    "n_estimators": 250,
+    "n_jobs": 2,
+    "random_state": 42,
+    "subsample": 0.8,
+    "tree_method": "hist"
+  },
+  "accuracy": 0.752157829839704,
+  "roc_auc": 0.8464692880409493,
+  "precision_churn": 0.6866197183098591,
+  "recall_churn": 0.6351791530944625,
+  "f1_churn": 0.6598984771573604,
+  "confusion_matrix_no_yes": [
+    [
+      415,
+      89
+    ],
+    [
+      112,
+      195
+    ]
+  ],
+  "serialization_predictions_identical": true,
+  "artifact_sha256": "8b87245861aab6c9f48a0556d2fff10323678ba45701cdc2bcca204dabed1a4c",
+  "split_sha256": "729fd5a6f0f6e3101192fde67f3a7ce9b731ff9e542e2a94c03d1a6a68db0c79"
+}

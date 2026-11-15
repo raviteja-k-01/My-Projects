@@ -1,15 +1,10 @@
-import os
-import pandas as pd
+"""Print the dataset audit used by training without modifying the raw CSV."""
 
-# Build an absolute path (works from any folder)
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-file_path = os.path.join(base_dir, "data", "telecom.csv")
+import json
 
-# Load dataset
-df = pd.read_csv(file_path)
-print("✅ Dataset loaded successfully from:", file_path)
-print("Shape:", df.shape)
-print(df.head())
+from .preprocess import load_dataset
 
 
-
+if __name__ == "__main__":
+    _, profile = load_dataset()
+    print(json.dumps(profile, indent=2))

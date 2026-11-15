@@ -7,12 +7,11 @@ scikit-learn==1.5.0
 xgboost==2.1.1
 
 # Visualization
-matplotlib==3.9.1
-seaborn==0.13.2
+matplotlib==3.9.2
 
 # Utility
 joblib==1.4.2
 streamlit==1.39.0
-shap==0.44.1
-ipython==8.28.0
+pyarrow==22.0.0
+shap==0.46.0
 

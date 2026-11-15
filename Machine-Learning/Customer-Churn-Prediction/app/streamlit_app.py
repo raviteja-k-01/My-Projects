@@ -1,162 +1,181 @@
-# ======================================================
-# STREAMLIT APP : CUSTOMER CHURN PREDICTION (FINAL CLEAN VERSION)
-# ======================================================
+"""Single and batch churn predictions from raw customer information."""
 
-import streamlit as st
-import pandas as pd
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
 import numpy as np
-import os
-from xgboost import XGBClassifier
-import shap
-import matplotlib.pyplot as plt
+import pandas as pd
+import streamlit as st
 
-# Must be the first Streamlit command
-st.set_page_config(page_title="Customer Churn Prediction", layout="centered")
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-# ======================================================
-# LOAD TRAINED MODEL (CACHED)
-# ======================================================
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-model_path = os.path.join(base_dir, "model", "churn_model.json")
+from src.preprocess import (  # noqa: E402
+    CATEGORICAL_VALUES,
+    MODEL_PATH,
+    load_artifact,
+    predict_batch,
+    read_customer_csv,
+)
+
+LABELS = {
+    "gender": "Gender", "Partner": "Partner", "Dependents": "Dependents",
+    "PhoneService": "Phone service", "MultipleLines": "Multiple lines",
+    "InternetService": "Internet service", "OnlineSecurity": "Online security",
+    "OnlineBackup": "Online backup", "DeviceProtection": "Device protection",
+    "TechSupport": "Tech support", "StreamingTV": "Streaming TV",
+    "StreamingMovies": "Streaming movies", "Contract": "Contract",
+    "PaperlessBilling": "Paperless billing", "PaymentMethod": "Payment method",
+}
+
 
 @st.cache_resource
-def load_model():
-    model = XGBClassifier()
-    model.load_model(model_path)
-    return model
+def cached_artifact(path: str, modified_ns: int, size: int) -> dict:
+    """Refresh the cached artifact when a training run replaces the file."""
+    return load_artifact(Path(path))
 
-model = load_model()
 
-# ======================================================
-# INITIALIZE SHAP EXPLAINER (CACHED)
-# ======================================================
-@st.cache_resource
-def load_shap_explainer(_model):
-    return shap.Explainer(_model)
-
-explainer = load_shap_explainer(model)
-
-# ======================================================
-# FEATURE COLUMNS
-# ======================================================
-X_columns = [
-    "gender", "SeniorCitizen", "Partner", "Dependents", "tenure",
-    "PhoneService", "MultipleLines", "InternetService", "OnlineSecurity",
-    "OnlineBackup", "DeviceProtection", "TechSupport", "StreamingTV",
-    "StreamingMovies", "Contract", "PaperlessBilling", "PaymentMethod",
-    "MonthlyCharges", "TotalCharges"
-]
-
-# ======================================================
-# PAGE LAYOUT
-# ======================================================
-st.title("💡 Customer Churn Prediction System")
-st.sidebar.title("Select Mode")
-mode = st.sidebar.radio("Mode:", ["🔮 Single Prediction", "📦 Batch Prediction"])
-
-# ======================================================
-# PREDICTION FUNCTION
-# ======================================================
-def make_prediction(data: pd.DataFrame):
-    probs = model.predict_proba(data)[:, 1]
-    preds = (probs >= 0.40).astype(int)
-    return preds, probs
-
-# ======================================================
-# SINGLE PREDICTION
-# ======================================================
-if mode == "🔮 Single Prediction":
-    st.subheader("Enter Customer Details")
-
-    gender = st.selectbox("Gender", ["Male", "Female"])
-    senior = st.selectbox("Senior Citizen", [0, 1])
-    partner = st.selectbox("Partner", ["Yes", "No"])
-    dependents = st.selectbox("Dependents", ["Yes", "No"])
-    tenure = st.number_input("Tenure (Months)", 0, 72, 12)
-    phoneservice = st.selectbox("Phone Service", ["Yes", "No"])
-    multiplelines = st.selectbox("Multiple Lines", ["No", "Yes", "No phone service"])
-    internetservice = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
-    onlinesecurity = st.selectbox("Online Security", ["No", "Yes", "No internet service"])
-    onlinebackup = st.selectbox("Online Backup", ["No", "Yes", "No internet service"])
-    deviceprotection = st.selectbox("Device Protection", ["No", "Yes", "No internet service"])
-    techsupport = st.selectbox("Tech Support", ["No", "Yes", "No internet service"])
-    streamingtv = st.selectbox("Streaming TV", ["No", "Yes", "No internet service"])
-    streamingmovies = st.selectbox("Streaming Movies", ["No", "Yes", "No internet service"])
-    contract = st.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
-    paperlessbilling = st.selectbox("Paperless Billing", ["Yes", "No"])
-    paymentmethod = st.selectbox(
-        "Payment Method",
-        ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"]
-    )
-    monthlycharges = st.number_input("Monthly Charges", 0.0, 150.0, 70.0)
-    totalcharges = st.number_input("Total Charges", 0.0, 10000.0, 2000.0)
-
-    input_dict = {
-        "gender": [1 if gender == "Male" else 0],
-        "SeniorCitizen": [senior],
-        "Partner": [1 if partner == "Yes" else 0],
-        "Dependents": [1 if dependents == "Yes" else 0],
-        "tenure": [tenure],
-        "PhoneService": [1 if phoneservice == "Yes" else 0],
-        "MultipleLines": [0 if multiplelines == "No" else (1 if multiplelines == "Yes" else 2)],
-        "InternetService": [0 if internetservice == "DSL" else (1 if internetservice == "Fiber optic" else 2)],
-        "OnlineSecurity": [0 if onlinesecurity == "No" else (1 if onlinesecurity == "Yes" else 2)],
-        "OnlineBackup": [0 if onlinebackup == "No" else (1 if onlinebackup == "Yes" else 2)],
-        "DeviceProtection": [0 if deviceprotection == "No" else (1 if deviceprotection == "Yes" else 2)],
-        "TechSupport": [0 if techsupport == "No" else (1 if techsupport == "Yes" else 2)],
-        "StreamingTV": [0 if streamingtv == "No" else (1 if streamingtv == "Yes" else 2)],
-        "StreamingMovies": [0 if streamingmovies == "No" else (1 if streamingmovies == "Yes" else 2)],
-        "Contract": [0 if contract == "Month-to-month" else (1 if contract == "One year" else 2)],
-        "PaperlessBilling": [1 if paperlessbilling == "Yes" else 0],
-        "PaymentMethod": [0 if paymentmethod == "Electronic check" else (1 if paymentmethod == "Mailed check" else (2 if paymentmethod == "Bank transfer (automatic)" else 3))],
-        "MonthlyCharges": [monthlycharges],
-        "TotalCharges": [totalcharges],
-    }
-
-    df_input = pd.DataFrame(input_dict)
-    st.write("### Input Summary:", df_input)
-
-    if st.button("Predict Churn"):
-        pred, prob = make_prediction(df_input)
-        churn = "CHURN" if pred[0] == 1 else "STAY"
-        conf = round(prob[0]*100, 2) if pred[0] == 1 else round((1-prob[0])*100, 2)
-        color = "red" if churn == "CHURN" else "green"
-        st.markdown(
-            f"<h3 style='color:{color};'>✅ Customer likely to {churn} (Confidence: {conf}%)</h3>",
-            unsafe_allow_html=True,
+def render_batch(artifact: dict, frame: pd.DataFrame) -> pd.DataFrame | None:
+    """Render validated row results and the exact downloadable CSV."""
+    try:
+        result = predict_batch(artifact, frame)
+    except ValueError as exc:
+        st.error(str(exc))
+        return None
+    valid = result["Validation_Error"].fillna("").eq("")
+    st.success(f"Predicted {int(valid.sum())} of {len(result)} records.")
+    if not valid.all():
+        st.warning(
+            f"{int((~valid).sum())} invalid records were left without predictions. "
+            "Check Validation_Error for the fields to correct."
         )
-        st.session_state["last_input"] = df_input
+    st.dataframe(result, hide_index=True, use_container_width=True)
+    st.download_button(
+        "Download predictions",
+        result.to_csv(index=False).encode("utf-8"),
+        file_name="churn_predictions.csv", mime="text/csv",
+    )
+    return result
 
-    if "last_input" in st.session_state:
-        st.subheader("🔍 Explain this prediction")
-        if st.button("Show SHAP Explanation"):
-            df_input = st.session_state["last_input"]
-            shap.initjs()
-            shap_values = explainer(df_input)
-            st.subheader("📊 SHAP Feature Impact (Waterfall Plot)")
-            fig, ax = plt.subplots(figsize=(10, 6))
-            shap.plots.waterfall(shap_values[0], show=False)
-            st.pyplot(fig)
 
-# ======================================================
-# BATCH PREDICTION
-# ======================================================
-elif mode == "📦 Batch Prediction":
-    st.subheader("Upload a CSV file for batch predictions")
-    uploaded = st.file_uploader("Choose CSV", type=["csv"])
-    if uploaded:
-        batch_df = pd.read_csv(uploaded)
-        st.write("✅ File uploaded! Preview:")
-        st.dataframe(batch_df.head())
+def single_prediction(artifact: dict) -> None:
+    st.subheader("Enter customer details")
+    with st.form("customer"):
+        raw = {}
+        for column, choices in CATEGORICAL_VALUES.items():
+            default_index = choices.index("Yes") if column == "PhoneService" else 0
+            raw[column] = st.selectbox(LABELS[column], choices, index=default_index, key=column)
+        raw["SeniorCitizen"] = st.selectbox("Senior citizen", [0, 1], key="SeniorCitizen")
+        raw["tenure"] = st.number_input("Tenure (months)", min_value=0, value=12, step=1, key="tenure")
+        raw["MonthlyCharges"] = st.number_input(
+            "Monthly charges", min_value=0.0, value=70.0, step=0.05, key="MonthlyCharges"
+        )
+        raw["TotalCharges"] = st.number_input(
+            "Total charges", min_value=0.0, value=2000.0, step=0.05, key="TotalCharges"
+        )
+        total_missing = st.checkbox("Total charges are unknown", key="total_missing")
+        st.caption("If there is no phone or internet service, select the matching 'No service' options for its add-ons.")
+        submitted = st.form_submit_button("Predict churn")
 
-        preds, probs = make_prediction(batch_df)
-        batch_df["Predicted_Churn"] = ["Yes" if p == 1 else "No" for p in preds]
-        batch_df["Confidence"] = np.round(np.where(preds == 1, probs, 1 - probs) * 100, 2)
-        st.write("### Results:")
-        st.dataframe(batch_df.head())
+    if submitted:
+        if total_missing:
+            raw["TotalCharges"] = np.nan
+        frame = pd.DataFrame([raw])
+        try:
+            result = predict_batch(artifact, frame)
+            error = result["Validation_Error"].fillna("").iloc[0]
+            if error:
+                raise ValueError(error)
+        except ValueError as exc:
+            st.session_state.pop("last_prediction", None)
+            st.error(str(exc))
+        else:
+            st.session_state["last_prediction"] = {
+                "raw": frame, "result": result, "model_id": artifact["model_id"],
+                "show_explanation": False,
+            }
 
-        csv = batch_df.to_csv(index=False).encode("utf-8")
-        st.download_button("📥 Download Predictions", csv, "batch_predictions.csv", "text/csv")
+    previous = st.session_state.get("last_prediction")
+    if previous is None or previous["model_id"] != artifact["model_id"]:
+        return
+    result = previous["result"].iloc[0]
+    st.success(f"Predicted churn: {result['Predicted_Churn']}")
+    st.metric("Churn probability", f"{result['Churn_Probability']:.2%}")
+    st.caption("Results below use the most recently submitted customer details.")
+    with st.expander("Customer details used for this prediction"):
+        st.dataframe(previous["raw"], hide_index=True)
+    if st.button("Explain prediction"):
+        previous["show_explanation"] = True
+    if previous["show_explanation"]:
+        from src.explain import explain_predictions, waterfall_figure
+        import matplotlib.pyplot as plt
+
+        try:
+            explanation = explain_predictions(artifact, previous["raw"])
+            figure = waterfall_figure(explanation)
+            try:
+                st.pyplot(figure, clear_figure=True)
+            finally:
+                plt.close(figure)
+            st.caption(
+                "SHAP contributions are in log-odds: positive values increase the model's "
+                "churn score; negative values decrease it. These are model explanations, "
+                "not causal effects."
+            )
+        except (ValueError, RuntimeError) as exc:
+            st.error(f"Could not explain this prediction: {exc}")
+
+
+def batch_prediction(artifact: dict) -> None:
+    st.subheader("Upload customer information")
+    st.write(
+        "Use the 19 raw customer fields shown in the sample CSV. "
+        "Blank values are filled using the training data; invalid values are flagged. "
+        "customerID and Churn are optional and are not used to make predictions."
+    )
+    sample_path = ROOT / "data" / "telecom.csv"
+    if sample_path.exists():
+        sample = pd.read_csv(sample_path, nrows=5).drop(columns=["Churn"], errors="ignore")
+        st.download_button(
+            "Download sample CSV", sample.to_csv(index=False).encode("utf-8"),
+            file_name="sample_customers.csv", mime="text/csv",
+        )
+    uploaded = st.file_uploader("Upload a customer CSV", type=["csv"])
+    if uploaded is not None:
+        try:
+            frame = read_customer_csv(uploaded)
+        except (ValueError, UnicodeError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
+            st.error(f"Could not read customer CSV: {exc}")
+        else:
+            render_batch(artifact, frame)
+
+
+def main() -> None:
+    st.set_page_config(page_title="Customer Churn Prediction", layout="centered")
+    st.title("Customer Churn Prediction")
+    if not MODEL_PATH.exists():
+        st.error("Model missing. Run `python -m src.train` from the project folder first.")
+        st.stop()
+    try:
+        stat = MODEL_PATH.stat()
+        artifact = cached_artifact(str(MODEL_PATH), stat.st_mtime_ns, stat.st_size)
+    except (ValueError, OSError, KeyError) as exc:
+        st.error(f"Could not load the model: {exc}")
+        st.stop()
+    st.caption(
+        f"Churn = Yes when model probability is at least {artifact['threshold']:.0%}. "
+        "This model score is not a guarantee of what a customer will do."
+    )
+    st.sidebar.caption(f"Model: {artifact['model_id']}")
+    mode = st.sidebar.radio("Mode", ["Single Prediction", "Batch Prediction"])
+    if mode == "Single Prediction":
+        single_prediction(artifact)
+    else:
+        batch_prediction(artifact)
+
 
 if __name__ == "__main__":
-    pass
+    main()

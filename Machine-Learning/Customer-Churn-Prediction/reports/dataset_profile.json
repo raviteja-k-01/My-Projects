@@ -1,0 +1,57 @@
+{
+  "sha256": "35fb24cbd43c60ad997bf97cc751fdbe32f2167cf8ef18ef0de813ebc1f7bfb1",
+  "raw_rows": 7042,
+  "raw_columns": 21,
+  "feature_columns": [
+    "gender",
+    "SeniorCitizen",
+    "Partner",
+    "Dependents",
+    "tenure",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod",
+    "MonthlyCharges",
+    "TotalCharges"
+  ],
+  "missing_features": {
+    "gender": 0,
+    "SeniorCitizen": 0,
+    "Partner": 0,
+    "Dependents": 0,
+    "tenure": 0,
+    "PhoneService": 0,
+    "MultipleLines": 0,
+    "InternetService": 0,
+    "OnlineSecurity": 0,
+    "OnlineBackup": 0,
+    "DeviceProtection": 0,
+    "TechSupport": 0,
+    "StreamingTV": 0,
+    "StreamingMovies": 0,
+    "Contract": 0,
+    "PaperlessBilling": 0,
+    "PaymentMethod": 0,
+    "MonthlyCharges": 0,
+    "TotalCharges": 0
+  },
+  "raw_target_counts": {
+    "Yes": 3521,
+    "No": 3521
+  },
+  "exact_duplicates_removed": 2989,
+  "unique_customers": 4053,
+  "unique_target_counts": {
+    "No": 2518,
+    "Yes": 1535
+  }
+}

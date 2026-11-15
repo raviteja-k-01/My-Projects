@@ -1,0 +1,12 @@
+{
+  "model_id": "d0adac9947539d1b",
+  "browser": "Chromium (Playwright)",
+  "single_prediction_matches_backend": true,
+  "shap_image_loaded": true,
+  "batch_upload_rows": 5,
+  "batch_valid_predictions": 4,
+  "batch_invalid_rows": 1,
+  "download_matches_backend": true,
+  "missing_column_error": true,
+  "duplicate_header_error": true
+}

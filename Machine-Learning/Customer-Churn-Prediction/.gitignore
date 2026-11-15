@@ -1,5 +1,10 @@
 # ignore python cache files
 __pycache__/
+.venv/
+.pytest_cache/
+.training-*/
+customer_churn_v2_patch.zip
+test-results/
 *.pyc
 *.pyo
 *.pyd
