@@ -5,7 +5,7 @@ record, **not** proof of production readiness.
 
 ## 1. Immutable corpus, offline build, and online serving
 
-\`\`\`text
+```text
 OFFLINE / CONTROLLED BUILD (NOT REQUEST PATH)
 12 fictional enterprise PDFs (source files in Git)
     -> deterministic extraction / chunking
@@ -29,23 +29,23 @@ Streamlit UI (untrusted input)
     -> Gemini generation from evidence only
     -> citation mapping + retrieval_mode (hybrid or bm25_fallback)
     -> answer + source references, or explicit service-unavailable error
-\`\`\`
+```
 
 **No embeddings are generated for 1,985 documents during a user query.**
 Document vectors are generated only in controlled indexing.
 
 ## 2. Two separate credentials; one model
 
-- \`GEMINI_API_KEY\`: default credential for embeddings and answer generation.
-- \`GEMINI_API_KEY_1\`: optional additional Gemini credential (for a
+- `GEMINI_API_KEY`: default credential for embeddings and answer generation.
+- `GEMINI_API_KEY_1`: optional additional Gemini credential (for a
   different project/account if provided by its owner).
-- \`GEMINI_EMBEDDING_KEY_ENV\`: optional selector with accepted values
-  \`GEMINI_API_KEY\` (default) or \`GEMINI_API_KEY_1\`.
-- \`GEMINI_EMBEDDING_KEY_ENV\` selects the **environment variable name**,
+- `GEMINI_EMBEDDING_KEY_ENV`: optional selector with accepted values
+  `GEMINI_API_KEY` (default) or `GEMINI_API_KEY_1`.
+- `GEMINI_EMBEDDING_KEY_ENV` selects the **environment variable name**,
   never a literal API key.
-- Both choices use \`gemini-embedding-2\`, the same document/query formatting
+- Both choices use `gemini-embedding-2`, the same document/query formatting
   rules, and fixed 768-dimensional output, matching the existing Qdrant index.
-- The generation client currently reads \`GEMINI_API_KEY\` independently.
+- The generation client currently reads `GEMINI_API_KEY` independently.
 - **Automatic free-tier key rotation on exhausted project quotas is not
   implemented.** Google documents that quotas are per project and its Google
   APIs Terms prohibit attempts to circumvent documented limits. Consult
@@ -62,7 +62,7 @@ Google documentation:
 
 | Fault | Application behavior | Evaluation behavior |
 | --- | --- | --- |
-| Gemini query embedding 429 or 5xx | Return BM25-only evidence; label \`retrieval_mode=bm25_fallback\` | Fail; never falsely score BM25 as hybrid |
+| Gemini query embedding 429 or 5xx | Return BM25-only evidence; label `retrieval_mode=bm25_fallback` | Fail; never falsely score BM25 as hybrid |
 | Bad credential (401/403) | Fail; no silent fallback | Fail |
 | Incompatible Qdrant collection | Fail before writes | Fail |
 | Gemini answer generation unavailable | Return explicit service-unavailable status via API | Answer evaluation cannot complete |
@@ -82,8 +82,8 @@ answer-quality checks.
   cache, with a data-versioned cache namespace.
 - The rate limiter identifies the request peer. Trust proxy forwarding
   headers only when the deployment proxy is configured correctly.
-- \`RAG_RATE_LIMIT_PER_MINUTE\` defaults to 12 per peer per 60 seconds.
-- \`/ask\` trims and bounds a question to 1–1,000 characters.
+- `RAG_RATE_LIMIT_PER_MINUTE` defaults to 12 per peer per 60 seconds.
+- `/ask` trims and bounds a question to 1–1,000 characters.
 - Do not place secret credentials in the Streamlit browser/frontend.
 - The Qdrant collection is accessed server-side with a secret key.
 - A free Qdrant cluster can be deleted after inactivity; preserve a
@@ -128,24 +128,24 @@ As of 2026-11-18, operator-provided local logs showed:
 
 Pull reviewed code:
 
-\`\`\`cmd
+```cmd
 git pull --ff-only
-\`\`\`
+```
 
 Run offline tests in Ubuntu WSL:
 
-\`\`\`cmd
+```cmd
 wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -m pytest -q"
-\`\`\`
+```
 
 Check selected credential **name** without printing key material:
 
-\`\`\`cmd
+```cmd
 wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -c 'from src.indexing.embedding_client import GeminiEmbeddingClient; c=GeminiEmbeddingClient(); print(\"EMBEDDING_KEY_ENV:\", c.key_env)'"
-\`\`\`
+```
 
 Do not repeatedly run the live hybrid evaluator while embedding quota is
-exhausted. Its checkpoint path is \`data/processed/hybrid_retrieval_live.jsonl\`
+exhausted. Its checkpoint path is `data/processed/hybrid_retrieval_live.jsonl`
 and should not be deleted.
 
 
@@ -157,25 +157,25 @@ Qdrant free-cluster inactivity deletion. These files are ignored by Git.
 
 Windows CMD from the project root, using the exact CI-verified corpus:
 
-\`\`\`cmd
+```cmd
 wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -m scripts.qdrant_backup export --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl"
-\`\`\`
+```
 
-Expect \`BACKUP VERIFIED: 1985 points\`. It verifies every point's ID,
+Expect `BACKUP VERIFIED: 1985 points`. It verifies every point's ID,
 complete document payload, 768-vector and matching corpus before writing
-\`data/qdrant_validation/enterprise_rag_chunks_backup.jsonl\` plus
-\`.manifest.json\`. This does not reset the collection.
+`data/qdrant_validation/enterprise_rag_chunks_backup.jsonl` plus
+`.manifest.json`. This does not reset the collection.
 
 Validate the backup without touching Qdrant:
 
-\`\`\`cmd
+```cmd
 wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -m scripts.qdrant_backup restore --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl"
-\`\`\`
+```
 
-Expected: \`BACKUP VERIFIED OFFLINE: 1985 points\` and \`RESTORE DRY RUN\`.
+Expected: `BACKUP VERIFIED OFFLINE: 1985 points` and `RESTORE DRY RUN`.
 
 Only if a cluster is lost, first configure a replacement Qdrant cluster,
-then run the **same** restore command with \`--apply\`. That operation creates
+then run the **same** restore command with `--apply`. That operation creates
 the required 768-cosine collection, skips verified compatible existing points,
 uploads only missing points, and audits all restored payloads and vectors.
 It will refuse a mismatched corpus, altered backup, or incompatible existing
