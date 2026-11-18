@@ -123,7 +123,7 @@ def test_prepare_does_not_overwrite_human_reviews_or_query_api(tmp_path):
     edited_gold = gold_records()
     edited_gold[0]["expected_facts"] = ["Different assertion"]
     gold_file.write_text(
-        "".join(json.dumps(row) + "\n" for row in edited_gold()), encoding="utf-8"
+        "".join(json.dumps(row) + "\n" for row in edited_gold), encoding="utf-8"
     )
     with pytest.raises(ValueError, match="Gold dataset changed"):
         evaluate_answers.prepare(gold_file, cases_file, review_dir)
