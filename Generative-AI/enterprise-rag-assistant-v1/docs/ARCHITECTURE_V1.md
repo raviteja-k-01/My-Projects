@@ -113,7 +113,8 @@ As of 2026-11-18, operator-provided local logs showed:
 1. Green CI + local WSL tests after these changes.
 2. Verify online BM25 fallback and explicit key selection on the deployed
    backend without leaking secrets or mislabeling evaluation.
-3. Back up full Qdrant vectors, payloads and corpus manifest independently.
+3. Run and independently verify the new `scripts.qdrant_backup` vector export.
+   Test dry-run restore before considering the index recoverable.
 4. Complete all 29 retrieval-evaluable gold questions with the **strict**
    hybrid evaluator; compare matched questions against BM25.
 5. Expand to 120 manually vetted gold questions, covering negative/unanswerable
@@ -146,3 +147,39 @@ wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise
 Do not repeatedly run the live hybrid evaluator while embedding quota is
 exhausted. Its checkpoint path is \`data/processed/hybrid_retrieval_live.jsonl\`
 and should not be deleted.
+
+
+## 8. Backup and recovery (no Gemini calls)
+
+A verified JSONL export plus SHA-256 manifest protects against the previous
+Qdrant free-cluster inactivity deletion. These files are ignored by Git.
+**Do not publish them or commit them to your repository.**
+
+Windows CMD from the project root, using the exact CI-verified corpus:
+
+\`\`\`cmd
+wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -m scripts.qdrant_backup export --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl"
+\`\`\`
+
+Expect \`BACKUP VERIFIED: 1985 points\`. It verifies every point's ID,
+complete document payload, 768-vector and matching corpus before writing
+\`data/qdrant_validation/enterprise_rag_chunks_backup.jsonl\` plus
+\`.manifest.json\`. This does not reset the collection.
+
+Validate the backup without touching Qdrant:
+
+\`\`\`cmd
+wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -m scripts.qdrant_backup restore --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl"
+\`\`\`
+
+Expected: \`BACKUP VERIFIED OFFLINE: 1985 points\` and \`RESTORE DRY RUN\`.
+
+Only if a cluster is lost, first configure a replacement Qdrant cluster,
+then run the **same** restore command with \`--apply\`. That operation creates
+the required 768-cosine collection, skips verified compatible existing points,
+uploads only missing points, and audits all restored payloads and vectors.
+It will refuse a mismatched corpus, altered backup, or incompatible existing
+Qdrant data. Restore never invokes Gemini.
+
+Store an additional private encrypted copy of the backup and manifest outside
+the project drive to survive local disk loss.
