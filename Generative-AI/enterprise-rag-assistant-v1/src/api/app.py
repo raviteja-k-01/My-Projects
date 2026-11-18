@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
+import os
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException, Request
+from pydantic import BaseModel, Field, field_validator
 from google.genai import errors as genai_errors
 from src.rag.rag_pipeline import EnterpriseRAGPipeline
+from src.api.rate_limit import SlidingWindowRateLimiter
 
 
 # --------------------------------------------------
@@ -11,7 +13,15 @@ from src.rag.rag_pipeline import EnterpriseRAGPipeline
 # --------------------------------------------------
 
 class AskRequest(BaseModel):
-    question: str
+    question: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("question")
+    @classmethod
+    def reject_blank(cls, value: str) -> str:
+        question = value.strip()
+        if not question:
+            raise ValueError("Question cannot be blank")
+        return question
 
 
 # --------------------------------------------------
@@ -19,6 +29,7 @@ class AskRequest(BaseModel):
 # --------------------------------------------------
 
 rag_pipeline: EnterpriseRAGPipeline | None = None
+rate_limiter = SlidingWindowRateLimiter(limit=int(os.getenv("RAG_RATE_LIMIT_PER_MINUTE", "12")))
 
 
 @asynccontextmanager
@@ -62,8 +73,20 @@ def health():
 # RAG endpoint
 # --------------------------------------------------
 
+def enforce_rate_limit(http_request: Request) -> None:
+    # Use the actual peer address; forwarded headers are trusted only if the
+    # deployment proxy and Uvicorn are independently configured to trust them.
+    client_id = http_request.client.host if http_request.client else "unknown"
+    if not rate_limiter.allow(client_id):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please retry later.",
+            headers={"Retry-After": "60"},
+        )
+
+
 @app.post("/ask")
-def ask(request: AskRequest):
+def ask(request: AskRequest, _rate_limit: None = Depends(enforce_rate_limit)):
 
     if rag_pipeline is None:
         raise HTTPException(
