@@ -1,11 +1,13 @@
+# Versions verified on GitHub Actions Python 3.11 (2026-11-18).
+# Pin direct dependencies to make CI/build behavior reproducible.
 pymupdf==1.28.2
-google-genai
-qdrant-client
-bm25s
-python-dotenv
+google-genai==2.34.0
+qdrant-client==1.20.0
+bm25s==0.3.16
+python-dotenv==1.2.4
 langchain-google-genai==4.3.2
-fastapi
-uvicorn[standard]
-streamlit
-requests
-pytest
+fastapi==0.164.0
+uvicorn[standard]==0.54.0
+streamlit==1.67.0
+requests==2.34.2
+pytest==9.2.0
