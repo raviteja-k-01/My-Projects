@@ -214,3 +214,21 @@ Before a public "reliable" claim:
 - real demo traffic is tested separately.
 
 A single severe hallucination matters more than a polished average score.
+
+## What HTTP 503 means during answer replay
+
+If `capture --replay-hybrid-checkpoint` returns **HTTP 503** from Gemini
+generation, retrieval replay has succeeded but the generation provider was
+temporarily unavailable. This is **not** a 429 daily-embedding-quota error.
+Google documents 503 as model/service overload. The completed Q001 historical
+retrieval checkpoint is still available and no answer has been captured.
+The generator reports a clean error rather than an unhandled traceback.
+The SDK already performs bounded retries; do not add repeated blind requests.
+
+An operator can choose another **provider-confirmed available** generation
+model by setting `GEMINI_GENERATION_MODEL` in their private local `.env`.
+The default is `gemini-3.6-flash`. That setting **does not change** the
+`gemini-embedding-2` retrieval model or Qdrant vector space. Record the
+chosen generation model alongside evaluation results; never silently mix
+different models in a claimed apples-to-apples benchmark. No provider
+availability or capacity is guaranteed by this configuration option.
