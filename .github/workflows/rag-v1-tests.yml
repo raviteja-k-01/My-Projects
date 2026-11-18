@@ -18,8 +18,8 @@ jobs:
       run:
         working-directory: Generative-AI/enterprise-rag-assistant-v1
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -38,8 +38,8 @@ jobs:
       run:
         working-directory: Generative-AI/enterprise-rag-assistant-v1
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -49,7 +49,7 @@ jobs:
       - name: Build and verify retrieval artifacts without API keys
         run: python -m scripts.build_retrieval_artifacts
       - name: Upload reproducible artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rag-v1-retrieval-artifacts
           path: |
