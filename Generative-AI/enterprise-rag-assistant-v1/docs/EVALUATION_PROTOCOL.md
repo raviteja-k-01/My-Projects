@@ -113,8 +113,10 @@ For human review:
    evidence**. Independently check disputed policy facts against PDFs.
 2. Edit `data/processed/answer_review_forms/Q001.json`: add reviewer name,
    score every dimension, and mark **each expected fact** met/partial/missed/
-   contradicted. Include concrete examples of unsupported claims and citation
-   errors. Use `notes` for any important tradeoffs.
+   contradicted. For a fact marked met/partial, identify the actual
+   `supporting_evidence_ids` where applicable; source IDs must exist in the
+   recorded context. Include concrete examples of unsupported claims and
+   citation errors. Use `notes` for any important tradeoffs.
 3. Run `python -m scripts.evaluate_answers report`: it counts **only
    completely human-reviewed captured answers**; it never scores blank forms.
 
