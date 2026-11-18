@@ -87,7 +87,7 @@ if submitted:
             chunk = citation.get("chunk_id", "")
             st.markdown(
                 f"**{doc}**  \nPage: {page}  \n"
-                f"Section: {section}  \nChunk: \`{chunk}\`"
+                f"Section: {section}  \nChunk: `{chunk}`"
             )
     else:
         st.info("No source citations were returned. Verify this answer before relying on it.")
