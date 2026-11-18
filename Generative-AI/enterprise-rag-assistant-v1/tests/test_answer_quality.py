@@ -152,6 +152,11 @@ def test_report_counts_only_completed_human_reviews():
     assert summary["ratings_distribution"]["fact_coverage"] == {1: 1}
     assert summary["ratings_distribution"]["factual_grounding"] == {2: 1}
 
+    first["fact_checks"][0]["supporting_evidence_ids"] = [999]
+    with pytest.raises(ValueError, match="unknown supporting evidence"):
+        summarize_reviews(gold, cases, reviews)
+    first["fact_checks"][0]["supporting_evidence_ids"] = [1]
+
     first["ratings"]["citation_support"] = True
     with pytest.raises(ValueError, match="Ratings must be integers"):
         validate_review(first, gold[0])
