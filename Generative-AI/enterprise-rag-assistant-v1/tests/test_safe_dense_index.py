@@ -239,3 +239,30 @@ def test_embedding_client_refuses_aggregated_or_missing_vector():
     client.client = SimpleNamespace(models=FakeModels())
     with pytest.raises(ValueError, match="Embedding count"):
         client.embed_documents(["first", "second"])
+
+
+def test_checkpoint_one_batch_is_verified_and_resumable(monkeypatch, capsys):
+    chunks = [
+        FakeChunk(f"C-{i}", f"text {i}", token_count=200)
+        for i in range(1, 6)
+    ]
+    store = FakeStore({})
+    embedder = FakeEmbedder()
+    monkeypatch.setattr(build.time, "sleep", lambda _: None)
+    monkeypatch.setattr(build, "MAX_BATCH_SIZE", 2)
+    # Use a low token budget only for this test.
+    original = build.make_batches
+
+    def two_at_a_time(ids, expected):
+        return original(ids, expected, batch_size=2)
+
+    monkeypatch.setattr(build, "make_batches", two_at_a_time)
+    build.run_index(chunks, embedder, store, max_batches=1)
+
+    assert store.uploads == [[1, 2]]
+    assert len(store.data) == 2
+    assert "CHECKPOINT VERIFIED" in capsys.readouterr().out
+
+    build.run_index(chunks, embedder, store)
+    assert len(store.data) == 5
+    assert store.uploads == [[1, 2], [3, 4], [5]]
