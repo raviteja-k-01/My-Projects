@@ -123,6 +123,55 @@ For human review:
 Do not publish selected evidence text or review data unless you intend to
 publish the fictional corpus and have checked for secrets or sensitive content.
 
+## Reuse verified hybrid retrieval when the embedding API has no quota
+
+The earlier strict hybrid evaluation already saved ranked results for Q001
+through Q005 in `data/processed/hybrid_retrieval_live.jsonl`. Those results
+were produced by **real historical dense+BM25 retrieval**, not BM25-only
+fallback. We can reconstruct the original ranked chunk payloads using the
+exact SHA-256-locked 1,985-chunk build, without making another embedding call.
+
+**Offline preview (zero Gemini requests):**
+
+```bash
+python -m scripts.evaluate_answers preview-replay \
+  --question-id Q001 \
+  --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl
+```
+
+**Controlled generation-only capture** (one request to the **generation
+model**, zero Gemini **embedding** requests):
+
+```bash
+python -m scripts.evaluate_answers capture --max-new 1 \
+  --replay-hybrid-checkpoint \
+  --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl
+```
+
+The shared `compose_answer` code ensures exactly the same context selection,
+generation and citation code path as the live FastAPI pipeline. Every saved
+answer records `retrieval_source=saved_hybrid_checkpoint`, never pretending
+to be a fresh retrieval run. Its retrieval timing is `null`; total timing
+reflects **only replay assembly/generation**, not a live end-to-end request.
+The historical checkpoint must be compatible with the current gold records,
+all ranked IDs must exist in the locked corpus, and the corpus SHA is checked
+before model invocation. Missing historical questions are not fabricated:
+they need new retrieval once embedding quota is genuinely available.
+
+If generation quota is also exhausted, no answer can be produced, and the
+script stops while keeping existing captures. Do not keep retrying exhausted
+quotas.
+
+### Care with unanswerable Q026
+
+The selected source excerpt at `SEC-IR-004-B0010` has a heading on
+**no legal deadline inference** and instructs responders to escalate
+jurisdiction-specific decisions to the owning function. That supports
+**not inventing an exact number and escalating**. It does **not by itself
+prove** that no universal figure appears anywhere else in the 12-document
+corpus. Verify that broader absence against the complete corpus; do not treat
+one excerpt as proof of a global negative.
+
 ## Independent citation checks: what they can and cannot prove
 
 Automated checks confirm whether citation IDs in `[Evidence N]` are valid,
