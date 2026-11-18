@@ -114,6 +114,9 @@ def attach_capture(case: dict[str, Any], response: dict[str, Any]) -> dict[str, 
         raise ValueError("Captured question does not match gold question")
     if response.get("retrieval_mode") != "hybrid":
         raise ValueError("Strict evaluation requires hybrid retrieval")
+    retrieval_source = response.get("retrieval_source", "live")
+    if retrieval_source not in ("live", "saved_hybrid_checkpoint"):
+        raise ValueError("Unknown retrieval provenance")
     trace = response.get("evaluation_trace")
     if not isinstance(trace, dict) or not isinstance(trace.get("selected_evidence"), list):
         raise ValueError("Evaluation trace with original evidence text is missing")
@@ -134,6 +137,7 @@ def attach_capture(case: dict[str, Any], response: dict[str, Any]) -> dict[str, 
         "answer": response["answer"],
         "model": response.get("model"),
         "retrieval_mode": response["retrieval_mode"],
+        "retrieval_source": retrieval_source,
         "citations": response["citations"],
         "retrieved_chunk_ids": trace["retrieved_chunk_ids"],
         "selected_evidence": trace["selected_evidence"],
