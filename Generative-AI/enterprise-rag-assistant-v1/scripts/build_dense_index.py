@@ -175,8 +175,12 @@ def run_index(
     chunks: list[ChunkRecord],
     embedder: GeminiEmbeddingClient,
     store: QdrantStore,
+    *,
+    max_batches: int | None = None,
 ) -> None:
     """Validate before writing, resume by individual verified point ID."""
+    if max_batches is not None and max_batches < 1:
+        raise ValueError("max_batches must be positive")
     expected = expected_payloads(chunks)
     store.ensure_collection()
     existing = store.existing_point_payloads()
@@ -191,7 +195,8 @@ def run_index(
         print("PASSED: All 1,985 point IDs, payloads, and vectors verified.")
         return
 
-    for batch_number, batch_ids in enumerate(batches, start=1):
+    work_batches = batches if max_batches is None else batches[:max_batches]
+    for batch_number, batch_ids in enumerate(work_batches, start=1):
         payloads = [expected[i] for i in batch_ids]
         vectors = embed_with_retry(
             embedder,
@@ -209,14 +214,20 @@ def run_index(
         )
         print(
             f"Verified progress: {len(existing) + sum(map(len, batches[:batch_number]))}"
-            f"/{len(expected)}; batch {batch_number}/{len(batches)}"
+            f"/{len(expected)}; batch {batch_number}/{len(work_batches)}"
         )
-        if batch_number < len(batches):
+        if batch_number < len(work_batches):
             time.sleep(BATCH_DELAY_SECONDS)
 
     # Do not trust count alone; re-read IDs, full payloads, and vector lengths.
     complete = store.existing_point_payloads()
     remaining = plan_missing_ids(expected, complete)
+    if remaining and max_batches is not None:
+        print(
+            f"CHECKPOINT VERIFIED: {len(complete)} points, "
+            f"{len(remaining)} remain. Resume with --apply."
+        )
+        return
     if remaining:
         raise RuntimeError(f"Qdrant final audit missing {len(remaining)} points")
     if len(complete) != len(expected):
@@ -234,8 +245,14 @@ def main() -> None:
         "--apply", action="store_true",
         help="Opt in to Gemini calls and writes to Qdrant (otherwise local-only)",
     )
+    parser.add_argument(
+        "--max-batches", type=int, default=None,
+        help="Optional checkpoint: stop after N successfully uploaded batches",
+    )
     args = parser.parse_args()
 
+    if args.max_batches is not None and args.max_batches < 1:
+        parser.error("--max-batches must be positive")
     chunks = verify_corpus(args.chunks)
     expected = expected_payloads(chunks)
     batches = make_batches(sorted(expected), expected)
@@ -253,7 +270,7 @@ def main() -> None:
     embedder = GeminiEmbeddingClient()
     store = QdrantStore()
     try:
-        run_index(chunks, embedder, store)
+        run_index(chunks, embedder, store, max_batches=args.max_batches)
     finally:
         store.close()
 
