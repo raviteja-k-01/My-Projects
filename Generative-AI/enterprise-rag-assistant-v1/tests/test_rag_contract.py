@@ -7,8 +7,11 @@ from src.generation.citation_builder import CitationBuilder
 
 
 class FakeRetriever:
+    def __init__(self):
+        self.modes = []
+
     def retrieve_with_mode(self, *, query, allow_sparse_fallback, **kwargs):
-        assert allow_sparse_fallback is True
+        self.modes.append(allow_sparse_fallback)
         assert query == "What is the policy?"
         return [
             {
@@ -50,3 +53,21 @@ def test_pipeline_discloses_bm25_fallback_and_real_citation():
     assert response["citation_count"] == 1
     assert response["citations"][0]["chunk_id"] == "POLICY-B001"
     assert response["evidence_count"] == 1
+    assert "evaluation_trace" not in response
+    assert pipeline.retriever.modes == [True]
+
+def test_internal_evaluation_trace_contains_real_evidence_and_disables_fallback():
+    pipeline = EnterpriseRAGPipeline.__new__(EnterpriseRAGPipeline)
+    pipeline.retriever = FakeRetriever()
+    pipeline.context_builder = ContextBuilder()
+    pipeline.citation_builder = CitationBuilder()
+    pipeline.generator = FakeGenerator()
+
+    response = pipeline.answer(
+        "What is the policy?", evaluation_trace=True, allow_sparse_fallback=False
+    )
+    trace = response["evaluation_trace"]
+    assert pipeline.retriever.modes == [False]
+    assert trace["retrieved_chunk_ids"] == ["POLICY-B001"]
+    assert trace["selected_evidence"][0]["text"] == "Incidents must be reported immediately."
+    assert trace["selected_evidence"][0]["chunk_id"] == "POLICY-B001"
