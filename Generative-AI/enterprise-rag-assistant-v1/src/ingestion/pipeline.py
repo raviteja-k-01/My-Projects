@@ -67,17 +67,19 @@ def process_document(pdf_path: Path) -> StructuredDocumentRecord:
     for page in pages:
         page.document_name = metadata.document_name
 
-        headings = parse_document_structure(pages)
+    # Process the complete document once, after every page has its final title.
+    # The previous indentation repeated parsing and reconstruction for each page.
+    headings = parse_document_structure(pages)
 
-        attach_table_heading_states(
-            pages=pages,
-            tables=tables,
-        )
+    attach_table_heading_states(
+        pages=pages,
+        tables=tables,
+    )
 
-        body_content = reconstruct_body_content(
-            pages=pages,
-            tables=tables,
-        )
+    body_content = reconstruct_body_content(
+        pages=pages,
+        tables=tables,
+    )
 
     return StructuredDocumentRecord(
         metadata=metadata,
