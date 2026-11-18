@@ -48,7 +48,7 @@ def new_review(gold: dict[str, Any]) -> dict[str, Any]:
         "notes": "",
         "ratings": {dimension: None for dimension in DIMENSIONS},
         "fact_checks": [
-            {"fact": fact, "status": None, "notes": ""}
+            {"fact": fact, "status": None, "supporting_evidence_ids": [], "notes": ""}
             for fact in gold["expected_facts"]
         ],
         "unsupported_claims": [],
@@ -173,6 +173,11 @@ def validate_review(review: dict[str, Any], gold: dict[str, Any]) -> bool:
     for check in checks:
         if check.get("status") is not None and check["status"] not in FACT_STATUSES:
             raise ValueError("Fact status must be met, partial, missed, contradicted, or null")
+        evidence_ids = check.get("supporting_evidence_ids")
+        if not isinstance(evidence_ids, list) or any(
+            type(evidence_id) is not int or evidence_id < 1 for evidence_id in evidence_ids
+        ):
+            raise ValueError("supporting_evidence_ids must be a list of positive integers")
         if not isinstance(check.get("notes"), str):
             raise ValueError("Fact notes must be text")
     complete = (
@@ -202,6 +207,12 @@ def summarize_reviews(gold: list[dict[str, Any]], cases: dict[str, dict[str, Any
         if validate_review(reviews[question_id], reference):
             if case["run"] is None:
                 raise ValueError(f"Review completed without answer capture: {question_id}")
+            available_evidence_ids = {
+                item["evidence_id"] for item in case["run"]["selected_evidence"]
+            }
+            for fact_check in reviews[question_id]["fact_checks"]:
+                if not set(fact_check["supporting_evidence_ids"]) <= available_evidence_ids:
+                    raise ValueError(f"Reviewer cites unknown supporting evidence: {question_id}")
             complete.append(question_id)
 
     scores = {dimension: dict(sorted(Counter(
