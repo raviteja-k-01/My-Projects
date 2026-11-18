@@ -1,5 +1,14 @@
+"""Gemini embeddings for the fixed 768-dimensional Qdrant collection.
+
+One model and one embedding space are used regardless of which explicitly
+selected credential authenticates the request. Credentials are never logged.
+"""
+from __future__ import annotations
+
+from functools import lru_cache
 import math
 import os
+from typing import Any
 
 from dotenv import load_dotenv
 from google import genai
@@ -9,169 +18,92 @@ from google.genai import types
 EMBEDDING_MODEL = "gemini-embedding-2"
 EMBEDDING_DIMENSION = 768
 
+# Explicit credential selection. We do NOT silently rotate free-tier keys to
+# bypass rate limits; Google API terms prohibit circumventing API limitations.
+ALLOWED_EMBEDDING_KEY_ENVS = frozenset({
+    "GEMINI_API_KEY",
+    "GEMINI_API_KEY_1",
+})
+
 
 class GeminiEmbeddingClient:
-    """
-    Creates Gemini embeddings for:
+    """Embedding client with bounded, process-local query cache.
 
-    1. Enterprise document chunks during indexing.
-    2. User questions during dense retrieval.
+    Documents are never cached (the ingestion script checkpoints in Qdrant).
+    Queries are cached by exact stripped text within this process, avoiding
+    repeated API requests for identical questions. No user data is persisted.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, key_env: str | None = None, client: Any | None = None) -> None:
         load_dotenv()
+        selected = key_env or os.getenv("GEMINI_EMBEDDING_KEY_ENV", "GEMINI_API_KEY")
+        if selected not in ALLOWED_EMBEDDING_KEY_ENVS:
+            raise ValueError("Invalid GEMINI_EMBEDDING_KEY_ENV; select an allowed key name")
 
-        api_key = os.getenv("GEMINI_API_KEY")
+        self.key_env = selected
+        if client is not None:
+            # Injection for deterministic offline unit tests.
+            self.client = client
+            return
 
+        api_key = os.getenv(selected)
         if not api_key:
-            raise ValueError(
-                "GEMINI_API_KEY is missing"
-            )
+            raise ValueError(f"{selected} is missing")
+        self.client = genai.Client(api_key=api_key)
 
-        self.client = genai.Client(
-            api_key=api_key
-        )
-
-    def _extract_vectors(
-        self,
-        response,
-        expected_count: int,
-    ) -> list[list[float]]:
-        """
-        Validate Gemini's response and convert
-        embedding values into normal Python lists.
-        """
-
+    @staticmethod
+    def _extract_vectors(response: Any, expected_count: int) -> list[list[float]]:
         if not response.embeddings:
-            raise ValueError(
-                "Gemini returned no embeddings"
-            )
-
+            raise ValueError("Gemini returned no embeddings")
         if len(response.embeddings) != expected_count:
             raise ValueError(
-                "Embedding count does not match "
-                f"input count. Expected "
-                f"{expected_count}, got "
-                f"{len(response.embeddings)}"
+                "Embedding count does not match input count: "
+                f"expected {expected_count}, got {len(response.embeddings)}"
             )
 
         vectors: list[list[float]] = []
-
         for embedding in response.embeddings:
-
             if embedding.values is None:
-                raise ValueError(
-                    "Embedding contains no values"
-                )
-
-            vector = [
-                float(value)
-                for value in embedding.values
-            ]
-
+                raise ValueError("Embedding contains no values")
+            vector = [float(value) for value in embedding.values]
             if len(vector) != EMBEDDING_DIMENSION:
-                raise ValueError(
-                    "Unexpected embedding dimension: "
-                    f"{len(vector)}"
-                )
-
-            if not all(
-                math.isfinite(value)
-                for value in vector
-            ):
-                raise ValueError(
-                    "Embedding contains "
-                    "non-finite values"
-                )
-
+                raise ValueError(f"Unexpected embedding dimension: {len(vector)}")
+            if not all(math.isfinite(value) for value in vector):
+                raise ValueError("Embedding contains non-finite values")
             vectors.append(vector)
-
         return vectors
 
-    def embed_documents(
-        self,
-        texts: list[str],
-    ) -> list[list[float]]:
-        """
-        Convert document chunks into separate
-        embeddings for storage in Qdrant.
-        """
-
-        if not texts:
-            raise ValueError(
-                "At least one document text "
-                "is required"
-            )
-
-        if any(
-            not text.strip()
-            for text in texts
-        ):
-            raise ValueError(
-                "Document text cannot be empty"
-            )
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        if not texts or any(not text.strip() for text in texts):
+            raise ValueError("Document text cannot be empty")
 
         contents = [
             types.Content(
-                parts=[
-                    types.Part.from_text(
-                        text=(
-                            "title: none | "
-                            f"text: {text}"
-                        )
-                    )
-                ]
+                parts=[types.Part.from_text(text=f"title: none | text: {text}")]
             )
             for text in texts
         ]
-
         response = self.client.models.embed_content(
             model=EMBEDDING_MODEL,
             contents=contents,
-            config=types.EmbedContentConfig(
-                output_dimensionality=(
-                    EMBEDDING_DIMENSION
-                )
-            ),
+            config=types.EmbedContentConfig(output_dimensionality=EMBEDDING_DIMENSION),
         )
+        return self._extract_vectors(response, len(texts))
 
-        return self._extract_vectors(
-            response=response,
-            expected_count=len(texts),
-        )
-
-    def embed_query(
-        self,
-        text: str,
-    ) -> list[float]:
-        """
-        Convert one user's question into an
-        embedding for dense retrieval.
-        """
-
-        if not text.strip():
-            raise ValueError(
-                "Query text cannot be empty"
-            )
-
-        prepared_query = (
-            "task: question answering | "
-            f"query: {text}"
-        )
-
+    @lru_cache(maxsize=512)
+    def _embed_query_cached(self, clean_text: str) -> tuple[float, ...]:
+        """Only a completed successful response is cached."""
+        prepared_query = f"task: question answering | query: {clean_text}"
         response = self.client.models.embed_content(
             model=EMBEDDING_MODEL,
             contents=prepared_query,
-            config=types.EmbedContentConfig(
-                output_dimensionality=(
-                    EMBEDDING_DIMENSION
-                )
-            ),
+            config=types.EmbedContentConfig(output_dimensionality=EMBEDDING_DIMENSION),
         )
+        return tuple(self._extract_vectors(response, 1)[0])
 
-        vectors = self._extract_vectors(
-            response=response,
-            expected_count=1,
-        )
-
-        return vectors[0]
+    def embed_query(self, text: str) -> list[float]:
+        clean_text = text.strip()
+        if not clean_text:
+            raise ValueError("Query text cannot be empty")
+        # Defensive copy: caller cannot mutate a cached vector.
+        return list(self._embed_query_cached(clean_text))
