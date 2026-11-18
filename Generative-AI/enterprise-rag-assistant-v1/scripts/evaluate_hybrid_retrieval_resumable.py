@@ -16,6 +16,8 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
+from google.genai import errors as genai_errors
+
 from src.evaluation.loader import load_gold_questions
 from src.evaluation.retrieval_metrics import DEFAULT_K_VALUES, evaluate_ranked_chunks
 from src.retrieval.hybrid_retriever import HybridRetriever
@@ -136,7 +138,17 @@ def main() -> None:
     parser.add_argument("--max-new", type=int, default=None,
                         help="Optional limit on new Gemini query embeddings this run")
     args = parser.parse_args()
-    run(output=args.output, max_new=args.max_new)
+    try:
+        run(output=args.output, max_new=args.max_new)
+    except genai_errors.ClientError as exc:
+        if getattr(exc, "code", None) != 429:
+            raise
+        print(
+            "STOPPED: Gemini embedding quota exhausted. Existing evaluation "
+            "checkpoints remain saved. Resume only after quota is available.",
+            flush=True,
+        )
+        raise SystemExit(75) from None
 
 
 if __name__ == "__main__":
