@@ -1,301 +1,180 @@
-# Enterprise RAG Assistant
+# Enterprise RAG Assistant V1
 
-A production-style Retrieval-Augmented Generation (RAG) application for answering questions from enterprise policy documents with grounded responses and source citations.
+**Status:** development/portfolio project; real indexing and hybrid retrieval
+have been verified locally. **Not yet validated as a publicly deployed,
+end-to-end application.**
 
-I built this project to understand and implement a complete RAG pipeline. The system handles document ingestion, hybrid retrieval, context construction, answer generation, citations, API serving, containerization, and cloud deployment.
-
-## What the project does
-
-The application works on a collection of fictional enterprise policy documents covering areas such as HR, information security, privacy, access management, incident response, travel, vendor risk, and AI governance.
-
-A user can ask a policy question such as:
-
-> What must be recorded when an incident severity is reclassified?
-
-The system retrieves the relevant evidence, generates an answer only from that evidence, and returns the supporting document, page, section, and chunk information.
+An evidence-grounded question-answering assistant for 12 **fictional**
+enterprise policy PDFs. It combines dense semantic search, BM25 keyword
+search, source-aware answer generation, and a human-reviewed RAG evaluation
+workflow. The goal is **correct, relevant, understandable policy answers**
+with defensible citations—not a high retrieval metric in isolation.
 
 ## Architecture
 
 ```text
-Enterprise PDFs
-      │
-      ▼
-Text + Table Extraction
-      │
-      ▼
-Structure Parsing & Normalization
-      │
-      ▼
-Section-Aware Chunking
-      │
-      ├──────────────┐
-      ▼              ▼
-Gemini Embeddings   BM25
-      │              │
-      ▼              ▼
-Qdrant Search     Sparse Search
-      └──────┬───────┘
-             ▼
-     Reciprocal Rank Fusion
-             │
-             ▼
-        Context Builder
-             │
-             ▼
-      Gemini Generation
-             │
-             ▼
-       Citation Builder
-             │
-             ▼
-    FastAPI + Streamlit
+12 fictional enterprise PDFs
+       |
+       v
+deterministic text/table extraction -> 1,985 identified chunks
+       |
+       +--> Gemini gemini-embedding-2 (768D) --> Qdrant Cloud
+       |
+       +--> BM25S local index
+                     |
+User question --> FastAPI input validation + rate limiter
+                     |
+       query embedding (512-entry in-process cache)
+                     |
+                Dense + BM25
+                     |
+                RRF fusion
+                     |
+       selected evidence (up to 8 chunks, token budget)
+                     |
+            Gemini grounded generation
+                     |
+        [Evidence N] -> document/page/section citation
+                     |
+          FastAPI result -> Streamlit UI
 ```
 
-## Knowledge Base
+The API labels `retrieval_mode=hybrid` or `bm25_fallback`. If the
+embedding API returns a quota/server error, the serving path can degrade
+to BM25-only retrieval; evaluation **does not** count that as hybrid retrieval.
+Generation can still fail if its own quota is unavailable. API credentials
+and Qdrant keys stay server-side.
 
-The current corpus contains:
+## Verified build and data
 
-| Metric | Count |
-|---|---:|
-| Documents | 12 |
-| Pages | 1,304 |
-| Extracted tables | 219 |
+| Item | Verified state |
+| --- | --- |
+| Fictional source PDFs | 12 |
 | Body chunks | 1,766 |
 | Table chunks | 219 |
-| Total retrieval chunks | 1,985 |
+| Total index chunks | **1,985** |
+| Qdrant | **1,985** IDs, vectors and payloads verified |
+| BM25 | **1,985** chunks, zero Qdrant payload mismatches |
+| Recovery | Full-vector JSONL export + SHA-256 manifest and verified offline dry-run restore |
+| Tests | GitHub CI and WSL automated tests; check current CI run for exact count |
 
-The ingestion pipeline preserves useful metadata such as document ID, page number, section, subsection, and table information so that retrieved evidence can be traced back to its original source.
+The backup and original BM25 index are **local/generated assets, not Git
+repository contents**. When deploying, provide the exact versioned BM25
+artifacts and secret environment variables. The Qdrant recovery script can
+restore validated vector/payload backups without re-embedding documents.
 
-## Retrieval
+## Evaluation: separate evidence retrieval from answer correctness
 
-The system uses **hybrid retrieval** instead of relying on semantic search alone.
+Existing gold questions: **30**, comprising **27 answerable and 3
+unanswerable** questions, with **121 expected-fact checks**. There are 29
+retrieval-evaluable questions (Q027 has no expected retrieval chunk).
 
-Dense retrieval uses Gemini embeddings stored in Qdrant, while BM25 handles keyword-sensitive searches such as policy IDs, exact terminology, section names, and acronyms.
+Current **BM25-only baseline on 29 evaluable questions**:
+- MRR: **0.5087**
+- Hit@5: **0.8276**
+- Recall@20: **0.6833**
 
-The two result sets are combined using Reciprocal Rank Fusion:
+This is a **retrieval baseline, not an answer accuracy score**. The current
+live strict-hybrid evaluation is only **5/30 checkpointed** due to Gemini
+quota exhaustion. It is not appropriate to claim a full current hybrid score
+until the remaining questions have run. Prior experiment results are not
+presented as current verified performance.
 
-```text
-RRF score = Σ 1 / (60 + rank)
-```
+The dedicated answer-quality protocol scores:
+1. evidence sufficiency;
+2. answer relevance;
+3. factual grounding;
+4. coverage of manually checked expected facts;
+5. claim-to-citation support;
+6. clear structure;
+7. uncertainty handling and appropriate abstention.
 
-The highest-ranked chunks are then passed to the context builder, which applies token limits and duplicate filtering before generation.
+Every dimension is graded **0/1/2 by a human reviewer using the actual
+evidence supplied to the model**. Automated checks validate citation syntax
+and source metadata only; they **do not** certify that the cited text supports
+a factual claim. Unreviewed answers never receive fabricated scores.
 
-## Grounded Generation and Citations
+See [Evaluation protocol](docs/EVALUATION_PROTOCOL.md) and
+[Architecture, operational limitations and backup guide](docs/ARCHITECTURE_V1.md).
 
-The generation layer uses Gemini through `langchain-google-genai`.
+### Offline answer-evaluation setup
 
-The prompt instructs the model to answer only from the supplied evidence and to reference evidence identifiers such as:
-
-```text
-[Evidence 1]
-[Evidence 2, Evidence 4]
-```
-
-Those references are mapped back to deterministic source metadata after generation.
-
-A returned citation can include:
-
-```text
-Document: SEC-IR-004
-Page: 16
-Section: 3.6 | Reclassification and audit trail
-Chunk: SEC-IR-004-B0026
-```
-
-This makes it possible to verify where an answer came from instead of treating the LLM response as a black box.
-
-## Evaluation
-
-I evaluated the retrieval pipeline using a separate gold question set.
-
-The hybrid baseline produced:
-
-| Metric | Score |
-|---|---:|
-| MRR | 0.6402 |
-| Hit@1 | 0.4828 |
-| Hit@3 | 0.7931 |
-| Hit@5 | 0.8621 |
-| Hit@10 | 0.9655 |
-| Hit@20 | 0.9655 |
-
-I also tested a cross-encoder reranker using `cross-encoder/ms-marco-MiniLM-L6-v2`.
-
-It reduced retrieval quality rather than improving it, including a drop in MRR from `0.6402` to `0.5564`.
-
-Because of that result, reranking is not part of the final V1 serving pipeline.
-
-I kept the experiment in the project because it reflects an important design principle behind this implementation: components are retained based on measured improvement, not simply because they are common in RAG architectures.
-
-## Testing
-
-The project includes automated tests for the main deterministic parts of the system:
-
-- Reciprocal Rank Fusion
-- context construction
-- citation generation
-- FastAPI endpoints
-- API error handling
-
-Current test result:
-
-```text
-16 passed
-```
-
-Run them with:
+From the project root:
 
 ```bash
-python -m pytest -v
+python -m scripts.evaluate_answers prepare       # 0 API calls
+python -m scripts.evaluate_answers inspect Q001   # 0 API calls
+python -m scripts.evaluate_answers report         # 0 API calls
 ```
 
-## Tech Stack
+To capture **one real end-to-end answer** only when the embedding and
+generation APIs have available quota:
 
-| Area | Technology |
-|---|---|
-| Language | Python 3.11 |
-| PDF processing | PyMuPDF |
-| Embeddings | Gemini Embeddings |
-| Vector database | Qdrant |
-| Sparse retrieval | BM25S |
-| Fusion | Reciprocal Rank Fusion |
-| Generation | Gemini |
-| LLM integration | LangChain Google GenAI |
-| Backend | FastAPI |
-| UI | Streamlit |
-| Testing | Pytest |
-| Containerization | Docker |
-| Cloud deployment | Azure Container Apps |
-| Container registry | Azure Container Registry |
-
-## Project Structure
-
-```text
-enterprise-rag-assistant/
-│
-├── data/
-│   ├── raw/
-│   └── processed/
-│
-├── scripts/
-├── src/
-│   ├── ingestion/
-│   ├── indexing/
-│   ├── retrieval/
-│   ├── generation/
-│   ├── rag/
-│   ├── api/
-│   └── ui/
-│
-├── tests/
-├── Dockerfile
-├── requirements.txt
-└── README.md
+```bash
+python -m scripts.evaluate_answers capture --max-new 1
 ```
 
-## Running Locally
+Each successful capture is checkpointed. Review forms are separate JSON files
+under `data/processed/answer_review_forms/`; they are never overwritten.
+To complete the original 120-question plan, add manually vetted, held-out
+gold questions and verify their underlying evidence.
 
-Create a `.env` file in the project root:
+## Running locally
+
+The project has been tested in Ubuntu WSL with a Linux virtual environment.
+Install with a supported Python 3.11+ environment:
+
+```bash
+python -m pip install -r requirements.txt
+python -m pytest -q
+```
+
+Put credentials in a local **gitignored** `.env`:
 
 ```env
-GEMINI_API_KEY=your_key
-QDRANT_URL=your_qdrant_url
-QDRANT_API_KEY=your_qdrant_key
+GEMINI_API_KEY=your_primary_key
+GEMINI_API_KEY_1=your_optional_second_project_key
+QDRANT_URL=your_cloud_url
+QDRANT_API_KEY=your_cloud_api_key
 ```
 
-Install dependencies:
+Optional `GEMINI_EMBEDDING_KEY_ENV` chooses the variable name used for
+embedding calls (default: `GEMINI_API_KEY`; alternative:
+`GEMINI_API_KEY_1`). Both use the **same embedding model** and 768-dimensional
+space. This is **explicit selection, not automatic credential rotation**.
+Use credentials in accordance with the API provider's usage limits.
+
+**Prerequisites:** Your Qdrant collection is indexed and the compatible
+`data/bm25/` build artifacts are present. Simply cloning the repository
+does not provide these generated resources.
+
+Run FastAPI:
 
 ```bash
-pip install -r requirements.txt
+python -m uvicorn src.api.app:app --host 127.0.0.1 --port 8000
 ```
 
-Start the API:
-
-```bash
-python -m uvicorn src.api.app:app --host 0.0.0.0 --port 8000
-```
-
-Then start Streamlit in another terminal:
+Run Streamlit in another terminal:
 
 ```bash
 streamlit run src/ui/app.py
 ```
 
-The API health endpoint is available at:
+The health endpoint is at `http://127.0.0.1:8000/health`; the app is
+normally at `http://127.0.0.1:8501`. These are **local** addresses,
+not proof of public hosting.
 
-```text
-http://127.0.0.1:8000/health
-```
+## Release work still required
 
-and the Streamlit application runs at:
+- Complete the 29-question strict hybrid retrieval evaluation.
+- Capture and **independently review actual generated answers**; investigate
+  inaccurate facts, unsupported claims, missing exceptions and false citations.
+- Expand to 120 manually verified questions, including holdout, table and
+  unanswerable cases.
+- Validate generation-model access and response quality on the deployed plan.
+- Provision BM25 assets, secrets and cloud hosting; verify cold starts,
+  rate limits, error handling and live end-to-end queries.
+- Publish a public demo link **only after a real deployment succeeds**.
 
-```text
-http://127.0.0.1:8501
-```
-
-## Docker
-
-Build the application image:
-
-```bash
-docker build -t enterprise-rag-app .
-```
-
-Run the FastAPI backend:
-
-```bash
-docker run --env-file .env -p 8000:8000 enterprise-rag-app
-```
-
-The same image is used for the Streamlit service with a different startup command.
-
-This keeps the deployment simple while allowing the backend and UI to run as separate containers.
-
-## Deployment
-
-The application is deployed on Microsoft Azure using:
-
-```text
-Azure Container Registry
-        │
-        ▼
-enterprise-rag-app
-        │
-   ┌────┴────┐
-   ▼         ▼
-FastAPI   Streamlit
-Container  Container
-   App       App
-```
-
-Azure Container Apps runs the API and UI independently.
-
-The backend connects to Qdrant Cloud and the Gemini API, while Azure-managed identities are used to pull the Docker image from Azure Container Registry.
-
-Secrets are supplied at runtime and are not stored inside the Docker image or committed to Git.
-
-## Performance
-
-During warm requests, the complete RAG pipeline typically responded in approximately **5–7 seconds**.
-
-Retrieval generally completed in around **1–3 seconds**.
-
-During testing, Gemini occasionally showed significantly higher generation latency and eventually hit API quota limits. The measurements showed that these latency spikes occurred primarily in the generation stage rather than in hybrid retrieval.
-
-Azure scale-to-zero can also make the first request after inactivity slower because of container cold starts.
-
-## Current Scope
-
-V1 intentionally focuses on a reliable document-based RAG workflow.
-
-Features such as agents, GraphRAG, multimodal document understanding, fine-tuning, and complex distributed infrastructure were left outside the current scope because they were not required to solve the core problem.
-
-Possible future improvements include better observability, caching, larger evaluation sets, authentication, multimodal document processing, and further LLM latency benchmarking.
-
-## Status
-
-The complete V1 pipeline has been implemented and validated end-to-end:
-
-**documents → ingestion → indexing → hybrid retrieval → grounded generation → citations → FastAPI → Streamlit → Docker → Azure**
-
-The project is currently deployed and working end-to-end.
+This is a fictional policy assistant and must not be used as a source of
+real corporate, legal, privacy or security policy.
