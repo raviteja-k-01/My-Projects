@@ -1,186 +1,259 @@
-import time
+"""Rebuild the verified 1,985-point dense index, safely and resumably.
+
+Start in the project root. Requires the reproducible chunks.jsonl produced
+by CI, QDRANT_URL / QDRANT_API_KEY, and GEMINI_API_KEY to write vectors.
+
+    python -m scripts.build_dense_index --chunks path/to/chunks.jsonl
+    python -m scripts.build_dense_index --chunks path/to/chunks.jsonl --apply
+
+Without --apply, only local corpus integrity is checked: no API calls.
+With --apply, existing Qdrant point IDs, full payloads AND vector lengths
+are audited before reusing any points. No deletions or collection resets.
+"""
+
+from __future__ import annotations
+
+import argparse
 from dataclasses import asdict
+from hashlib import sha256
+from pathlib import Path
+import time
 
 from google.genai import errors
 
+from src.core.models import ChunkRecord
 from src.indexing.chunk_loader import load_indexing_chunks
 from src.indexing.embedding_client import GeminiEmbeddingClient
 from src.indexing.qdrant_store import QdrantStore
 
 
-BATCH_SIZE = 16
+# From the CI-verified offline build on the reproducible-retrieval-artifacts PR.
+EXPECTED_CHUNKS_SHA256 = (
+    "41b7f8ff1d5db169a7cf5c945dbcc5d655578b6e25bea665c10dc7888a83abf4"
+)
+EXPECTED_CHUNKS = 1985
 
-# 16 embeddings every 10.5 seconds
-# keeps us below roughly 100 embeddings/minute.
-BATCH_DELAY_SECONDS = 10.5
+# AI Studio free tier shown for this project: 100 RPM, 30k TPM, 1000 RPD.
+# The chunk tokenizer uses characters/4 as an ESTIMATE, not Google's count.
+# Conservative token-budget pacing reduces risk; API still enforces actual TPM.
+MAX_BATCH_SIZE = 16
+MAX_ESTIMATED_TOKENS_PER_BATCH = 2500
+BATCH_DELAY_SECONDS = 12.5
+RATE_LIMIT_WAIT_SECONDS = 70
+MAX_429_RETRIES = 3
 
-# Fallback wait if Gemini still returns 429.
-RATE_LIMIT_RETRY_SECONDS = 65
+
+def verify_corpus(chunks_path: Path) -> list[ChunkRecord]:
+    """Refuse partial or changed inputs before touching the vector store."""
+    if not chunks_path.is_file():
+        raise FileNotFoundError(f"Missing chunks file: {chunks_path}")
+    digest = sha256(chunks_path.read_bytes()).hexdigest()
+    if digest != EXPECTED_CHUNKS_SHA256:
+        raise ValueError(
+            "Chunks SHA-256 differs from the CI-verified build. "
+            f"Expected {EXPECTED_CHUNKS_SHA256}, got {digest}. "
+            "Do not mix retrieval artifacts from different builds."
+        )
+    chunks = load_indexing_chunks(chunks_path)
+    if len(chunks) != EXPECTED_CHUNKS:
+        raise ValueError(
+            f"Wrong corpus size: expected {EXPECTED_CHUNKS}, got {len(chunks)}"
+        )
+    return chunks
+
+
+def expected_payloads(chunks: list[ChunkRecord]) -> dict[int, dict]:
+    """Stable historical point ID contract: 1-based position in chunk file."""
+    return {
+        index: asdict(chunk)
+        for index, chunk in enumerate(chunks, start=1)
+    }
+
+
+def plan_missing_ids(
+    expected: dict[int, dict],
+    observed: dict[int, dict],
+) -> list[int]:
+    """Check every existing payload; never infer completeness from count.
+
+    A point ID may be present with outdated text even if the final count
+    looks correct. Refuse that database rather than silently mixing builds.
+    """
+    unexpected = sorted(observed.keys() - expected.keys())
+    mismatched = sorted(
+        point_id
+        for point_id in observed.keys() & expected.keys()
+        if observed[point_id] != expected[point_id]
+    )
+    if unexpected or mismatched:
+        raise ValueError(
+            "Qdrant contains incompatible points; no indexing performed. "
+            f"Unexpected IDs (first 5): {unexpected[:5]}; "
+            f"mismatched payload IDs (first 5): {mismatched[:5]}"
+        )
+    return sorted(expected.keys() - observed.keys())
+
+
+def make_batches(
+    missing_ids: list[int],
+    expected: dict[int, dict],
+    *,
+    batch_size: int = MAX_BATCH_SIZE,
+    estimated_token_budget: int = MAX_ESTIMATED_TOKENS_PER_BATCH,
+) -> list[list[int]]:
+    """Bound both request batch size and approximate token volume."""
+    if batch_size < 1 or estimated_token_budget < 1:
+        raise ValueError("Batch size and token budget must be positive")
+    batches: list[list[int]] = []
+    current: list[int] = []
+    current_tokens = 0
+
+    for point_id in missing_ids:
+        token_estimate = expected[point_id]["token_count"]
+        if not isinstance(token_estimate, int) or token_estimate <= 0:
+            raise ValueError(f"Invalid token estimate for point {point_id}")
+        # The request adds a small "title: none | text:" prefix.
+        request_estimate = token_estimate + 12
+        if request_estimate > estimated_token_budget:
+            raise ValueError(
+                f"Point {point_id} exceeds estimated per-batch token budget"
+            )
+        if current and (
+            len(current) >= batch_size
+            or current_tokens + request_estimate > estimated_token_budget
+        ):
+            batches.append(current)
+            current = []
+            current_tokens = 0
+        current.append(point_id)
+        current_tokens += request_estimate
+
+    if current:
+        batches.append(current)
+    return batches
+
+
+def _daily_limit(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return any(marker in message for marker in (
+        "perday", "per_day", "per day", "requests per day",
+        "daily quota", "rpd",
+    ))
 
 
 def embed_with_retry(
     embedder: GeminiEmbeddingClient,
     texts: list[str],
 ) -> list[list[float]]:
-
-    while True:
+    """Retry bounded per-minute 429s; stop safely for daily or unknown errors."""
+    for attempt in range(MAX_429_RETRIES + 1):
         try:
             return embedder.embed_documents(texts)
-
         except errors.ClientError as exc:
-
             if exc.code != 429:
                 raise
-
-            error_text = str(exc)
-
-            # Daily free-tier quota exhausted.
-            if (
-                "PerDay" in error_text
-                or "requests per day" in error_text.lower()
-            ):
+            if _daily_limit(exc):
                 raise RuntimeError(
-                    "\nGemini daily embedding quota exhausted.\n"
-                    "The vectors already stored in Qdrant are safe.\n"
-                    "Run this script again after the daily quota resets."
+                    "Daily Gemini embedding quota exhausted; prior Qdrant "
+                    "batches remain saved. Resume after quota reset."
                 ) from exc
-
-            # Temporary per-minute quota.
+            if attempt >= MAX_429_RETRIES:
+                raise RuntimeError(
+                    "Gemini 429 persisted after bounded retries. Prior "
+                    "Qdrant batches remain saved; inspect quota before resuming."
+                ) from exc
             print(
-                "\nGemini per-minute rate limit reached."
+                f"Gemini 429: waiting {RATE_LIMIT_WAIT_SECONDS} seconds "
+                f"(retry {attempt + 1}/{MAX_429_RETRIES})"
             )
+            time.sleep(RATE_LIMIT_WAIT_SECONDS)
 
-            print(
-                f"Waiting "
-                f"{RATE_LIMIT_RETRY_SECONDS} seconds..."
-            )
+    raise AssertionError("Unreachable retry state")
 
-            time.sleep(
-                RATE_LIMIT_RETRY_SECONDS
+
+def run_index(
+    chunks: list[ChunkRecord],
+    embedder: GeminiEmbeddingClient,
+    store: QdrantStore,
+) -> None:
+    """Validate before writing, resume by individual verified point ID."""
+    expected = expected_payloads(chunks)
+    store.ensure_collection()
+    existing = store.existing_point_payloads()
+    missing = plan_missing_ids(expected, existing)
+    batches = make_batches(missing, expected)
+
+    print(
+        f"Verified corpus: {len(expected)}; already indexed: {len(existing)}; "
+        f"missing: {len(missing)}; planned embedding requests: {len(batches)}"
+    )
+    if not missing:
+        print("PASSED: All 1,985 point IDs, payloads, and vectors verified.")
+        return
+
+    for batch_number, batch_ids in enumerate(batches, start=1):
+        payloads = [expected[i] for i in batch_ids]
+        vectors = embed_with_retry(
+            embedder,
+            [payload["text"] for payload in payloads],
+        )
+        if len(vectors) != len(batch_ids):
+            raise ValueError(
+                "Gemini returned an unexpected embedding count; "
+                "batch was NOT uploaded"
             )
+        store.upsert_points(
+            point_ids=batch_ids,
+            vectors=vectors,
+            payloads=payloads,
+        )
+        print(
+            f"Verified progress: {len(existing) + sum(map(len, batches[:batch_number]))}"
+            f"/{len(expected)}; batch {batch_number}/{len(batches)}"
+        )
+        if batch_number < len(batches):
+            time.sleep(BATCH_DELAY_SECONDS)
+
+    # Do not trust count alone; re-read IDs, full payloads, and vector lengths.
+    complete = store.existing_point_payloads()
+    remaining = plan_missing_ids(expected, complete)
+    if remaining:
+        raise RuntimeError(f"Qdrant final audit missing {len(remaining)} points")
+    if len(complete) != len(expected):
+        raise RuntimeError("Qdrant final point count mismatch")
+    print(f"PASSED: all {len(expected)} point IDs, payloads and vectors verified.")
+
 
 def main() -> None:
-    chunks = load_indexing_chunks()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--chunks", type=Path, default=Path("data/processed/chunks.jsonl"),
+        help="Path to the exact CI-verified chunks.jsonl artifact",
+    )
+    parser.add_argument(
+        "--apply", action="store_true",
+        help="Opt in to Gemini calls and writes to Qdrant (otherwise local-only)",
+    )
+    args = parser.parse_args()
 
-    total_chunks = len(chunks)
-
-    if total_chunks == 0:
-        raise ValueError(
-            "No chunks available for indexing"
-        )
+    chunks = verify_corpus(args.chunks)
+    expected = expected_payloads(chunks)
+    batches = make_batches(sorted(expected), expected)
+    print(f"CORPUS VERIFIED: {len(chunks)} chunks, SHA-256 match.")
+    print(
+        f"Full-rebuild plan: {len(batches)} embedding requests, "
+        f"{MAX_BATCH_SIZE} max inputs/request, "
+        f"{MAX_ESTIMATED_TOKENS_PER_BATCH} estimated tokens/request."
+    )
+    if not args.apply:
+        print("DRY RUN: no Gemini calls, no Qdrant access or writes.")
+        print("Pass --apply only after configuring a new Qdrant cluster and keys.")
+        return
 
     embedder = GeminiEmbeddingClient()
     store = QdrantStore()
-
     try:
-        store.ensure_collection()
-
-        # Existing points allow interrupted builds
-        # to continue instead of starting over.
-        existing_count = store.count()
-
-        if existing_count > total_chunks:
-            raise ValueError(
-                "Qdrant contains more points than "
-                "the current chunk dataset."
-            )
-
-        print("\nDENSE INDEX BUILD")
-        print(
-            f"Total chunks: {total_chunks}"
-        )
-        print(
-            f"Already indexed: {existing_count}"
-        )
-        print(
-            f"Remaining: "
-            f"{total_chunks - existing_count}"
-        )
-        print(
-            f"Batch size: {BATCH_SIZE}"
-        )
-
-        if existing_count == total_chunks:
-            print(
-                "\nAll chunks are already indexed."
-            )
-            print(
-                "DENSE INDEX BUILD: PASS"
-            )
-            return
-
-        # Resume exactly after the points that
-        # have already been successfully stored.
-        for start in range(
-            existing_count,
-            total_chunks,
-            BATCH_SIZE,
-        ):
-            end = min(
-                start + BATCH_SIZE,
-                total_chunks,
-            )
-
-            batch = chunks[start:end]
-
-            vectors = embed_with_retry(
-                embedder=embedder,
-                texts=[
-                    chunk.text
-                    for chunk in batch
-                ],
-            )
-
-            payloads = [
-                asdict(chunk)
-                for chunk in batch
-            ]
-
-            point_ids = list(
-                range(
-                    start + 1,
-                    end + 1,
-                )
-            )
-
-            store.upsert_points(
-                point_ids=point_ids,
-                vectors=vectors,
-                payloads=payloads,
-            )
-
-            print(
-                f"Indexed {end}/{total_chunks}"
-            )
-
-            # Avoid immediately firing the next
-            # embedding batch into the free-tier quota.
-            if end < total_chunks:
-                time.sleep(
-                    BATCH_DELAY_SECONDS
-                )
-
-        stored_count = store.count()
-
-        if stored_count != total_chunks:
-            raise ValueError(
-                "Final Qdrant point count mismatch. "
-                f"Expected {total_chunks}, "
-                f"got {stored_count}."
-            )
-
-        print("\nDENSE INDEX SUMMARY")
-        print(
-            f"Expected chunks: {total_chunks}"
-        )
-        print(
-            f"Stored Qdrant points: {stored_count}"
-        )
-
-        print(
-            "\nDENSE INDEX BUILD: PASS"
-        )
-
+        run_index(chunks, embedder, store)
     finally:
         store.close()
 
