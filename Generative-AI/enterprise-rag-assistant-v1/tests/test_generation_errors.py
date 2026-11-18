@@ -1,9 +1,8 @@
 """Gemini generation failures are accurately classified without API calls."""
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
+from langchain_core.runnables import RunnableLambda
 
 from src.generation import answer_generator
 
@@ -76,7 +75,7 @@ def test_generation_model_is_explicitly_configurable_without_changing_embedding_
 
     def fake_llm(**kwargs):
         captured.append(kwargs)
-        return object()
+        return RunnableLambda(lambda data: data)
 
     monkeypatch.setattr(answer_generator, "ChatGoogleGenerativeAI", fake_llm)
     generator = answer_generator.GroundedAnswerGenerator()
@@ -89,6 +88,6 @@ def test_generation_model_is_explicitly_configurable_without_changing_embedding_
 def test_model_constructor_argument_overrides_environment(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-placeholder")
     monkeypatch.setenv("GEMINI_GENERATION_MODEL", "configured-model")
-    monkeypatch.setattr(answer_generator, "ChatGoogleGenerativeAI", lambda **kwargs: object())
+    monkeypatch.setattr(answer_generator, "ChatGoogleGenerativeAI", lambda **kwargs: RunnableLambda(lambda data: data))
     generator = answer_generator.GroundedAnswerGenerator(model_name="explicit-model")
     assert generator.model_name == "explicit-model"
