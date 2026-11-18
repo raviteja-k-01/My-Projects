@@ -44,7 +44,7 @@ class GroundedAnswerGenerator:
 
     def __init__(
         self,
-        model_name: str = DEFAULT_MODEL,
+        model_name: str | None = None,
     ) -> None:
         load_dotenv()
 
@@ -57,7 +57,11 @@ class GroundedAnswerGenerator:
                 "GEMINI_API_KEY is missing"
             )
 
-        self.model_name = model_name
+        # Explicit model selection avoids hardcoding a single busy model.
+        # Changing model creates a separate answer-evaluation experiment.
+        self.model_name = (model_name or os.getenv("GEMINI_GENERATION_MODEL", DEFAULT_MODEL)).strip()
+        if not self.model_name:
+            raise ValueError("Generation model name cannot be empty")
 
         self.llm = ChatGoogleGenerativeAI(
             model=self.model_name,
@@ -141,17 +145,41 @@ Answer the question using only the evidence above.
                         "Please try again when quota is available."
                     ) from exc
 
+                if "503" in message or "UNAVAILABLE" in message:
+                    raise RuntimeError(
+                        "Gemini generation model is temporarily unavailable "
+                        "(HTTP 503, high demand). No answer was generated. "
+                        "Retry later or explicitly select an available model."
+                    ) from exc
+
+                if "504" in message or "DEADLINE_EXCEEDED" in message:
+                    raise RuntimeError(
+                        "Gemini generation request timed out (HTTP 504). "
+                        "No answer was captured."
+                    ) from exc
+
                 raise RuntimeError(
-                    "Gemini generation failed."
+                    "Gemini generation failed. No answer was captured."
                 ) from exc
 
         except errors.ServerError as exc:
-            if getattr(exc, "code", None) == 504:
+            code = getattr(exc, "code", None)
+            if code == 503:
                 raise RuntimeError(
-                    "Gemini generation timed out. "
-                    "Please retry the request."
+                    "Gemini generation model is temporarily unavailable "
+                    "(HTTP 503, high demand). No answer was generated. "
+                    "Retry later or explicitly select an available model."
                 ) from exc
-
+            if code == 504:
+                raise RuntimeError(
+                    "Gemini generation request timed out (HTTP 504). "
+                    "No answer was captured."
+                ) from exc
+            if code in (500, 502):
+                raise RuntimeError(
+                    f"Gemini generation service error (HTTP {code}). "
+                    "No answer was captured."
+                ) from exc
             raise
 
         answer = response.text.strip()
