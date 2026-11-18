@@ -47,6 +47,17 @@ class QdrantStore:
         if self.client.collection_exists(
             self.collection_name
         ):
+            info = self.client.get_collection(self.collection_name)
+            params = info.config.params.vectors
+            if (
+                not isinstance(params, models.VectorParams)
+                or params.size != EMBEDDING_DIMENSION
+                or params.distance != models.Distance.COSINE
+            ):
+                raise ValueError(
+                    "Existing Qdrant collection has incompatible "
+                    "vector configuration; do not overwrite it"
+                )
             return
 
         self.client.create_collection(
@@ -56,6 +67,47 @@ class QdrantStore:
                 distance=models.Distance.COSINE,
             ),
         )
+
+    def existing_point_payloads(self) -> dict[int, dict[str, Any]]:
+        """Read every existing point, including its vector, before resuming.
+
+        No writes. Validates IDs, payloads, and stored vector dimensions.
+        An interrupted upsert may have succeeded even if its response failed.
+        """
+        records: dict[int, dict[str, Any]] = {}
+        offset = None
+        seen_offsets: set[str] = set()
+
+        while True:
+            points, next_offset = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=128,
+                offset=offset,
+                with_payload=True,
+                with_vectors=True,
+            )
+
+            for point in points:
+                if type(point.id) is not int or point.id < 1:
+                    raise ValueError(f"Unexpected Qdrant point ID: {point.id}")
+                if point.id in records:
+                    raise ValueError(f"Duplicate Qdrant point ID: {point.id}")
+                if not isinstance(point.payload, dict):
+                    raise ValueError(f"Missing payload for Qdrant point: {point.id}")
+                if not isinstance(point.vector, list):
+                    raise ValueError(f"Missing/invalid vector for Qdrant point: {point.id}")
+                self._validate_vector(point.vector)
+                records[point.id] = point.payload
+
+            if next_offset is None:
+                break
+            token = str(next_offset)
+            if token in seen_offsets or next_offset == offset:
+                raise RuntimeError("Qdrant scroll pagination did not advance")
+            seen_offsets.add(token)
+            offset = next_offset
+
+        return records
 
     def _validate_vector(
         self,
