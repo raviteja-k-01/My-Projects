@@ -46,17 +46,17 @@ of a strong average.
 
 ## Expected facts are review prompts, not verified natural-law truth
 
-Each gold row has a list of \`expected_facts\`, which must themselves be
+Each gold row has a list of `expected_facts`, which must themselves be
 checked against the appropriate fictional policy documents. Review each fact
 with one of:
 
-- \`met\`: output correctly covers this specific expected fact.
-- \`partial\`: incomplete or qualified coverage.
-- \`missed\`: required fact is absent.
-- \`contradicted\`: generated answer conflicts with the fact/document.
+- `met`: output correctly covers this specific expected fact.
+- `partial`: incomplete or qualified coverage.
+- `missed`: required fact is absent.
+- `contradicted`: generated answer conflicts with the fact/document.
 
-Record any unsupported factual claims in \`unsupported_claims\` and broken or
-misleading claim-to-source attribution in \`citation_errors\`, with quotes and
+Record any unsupported factual claims in `unsupported_claims` and broken or
+misleading claim-to-source attribution in `citation_errors`, with quotes and
 reference IDs where possible. For a multi-document question, each relevant
 document's contribution must be accounted for; a single citation does not
 prove complete coverage.
@@ -70,17 +70,17 @@ Q028 can legitimately retrieve relevant background chunks and still abstain.
 
 From the project root in Ubuntu WSL:
 
-\`\`\`bash
+```bash
 python -m scripts.evaluate_answers prepare
 python -m scripts.evaluate_answers inspect Q001
 python -m scripts.evaluate_answers report
-\`\`\`
+```
 
-\`prepare\` creates:
-- \`data/processed/answer_eval_cases.jsonl\`: the 30 gold-anchored records.
-  Every \`run\` initially \`null\` (not yet evaluated).
-- \`data/processed/answer_review_forms/Q001.json\` through \`Q030.json\`.
-  Every rating and expected-fact status initially \`null\`.
+`prepare` creates:
+- `data/processed/answer_eval_cases.jsonl`: the 30 gold-anchored records.
+  Every `run` initially `null` (not yet evaluated).
+- `data/processed/answer_review_forms/Q001.json` through `Q030.json`.
+  Every rating and expected-fact status initially `null`.
 
 These paths are **gitignored**. The process never erases completed captures
 or overwrites review forms. If the gold definition changes for a prior ID,
@@ -89,9 +89,9 @@ the evaluation refuses to reuse its stale response.
 Only after quota is available and full RAG connectivity is confirmed, execute
 an explicit controlled live capture:
 
-\`\`\`bash
+```bash
 python -m scripts.evaluate_answers capture --max-new 1
-\`\`\`
+```
 
 For each captured question the real pipeline runs **strict hybrid** retrieval
 (no BM25 fallback disguised as hybrid), builds its actual evidence context,
@@ -104,18 +104,18 @@ generates one answer, maps citations, and atomically saves:
 - independent automatic citation syntax/metadata checks.
 
 A 429 or generation error stops capture. Previously saved cases remain;
-rerunning capture skips them. \`capture\` is deliberately rate-bounded by
-\`--max-new 1\` unless explicitly changed.
+rerunning capture skips them. `capture` is deliberately rate-bounded by
+`--max-new 1` unless explicitly changed.
 
 For human review:
-1. Run \`python -m scripts.evaluate_answers inspect Q001\` to read the
+1. Run `python -m scripts.evaluate_answers inspect Q001` to read the
    **question, expected facts, actual answer, cited sources, and verbatim
    evidence**. Independently check disputed policy facts against PDFs.
-2. Edit \`data/processed/answer_review_forms/Q001.json\`: add reviewer name,
+2. Edit `data/processed/answer_review_forms/Q001.json`: add reviewer name,
    score every dimension, and mark **each expected fact** met/partial/missed/
    contradicted. Include concrete examples of unsupported claims and citation
-   errors. Use \`notes\` for any important tradeoffs.
-3. Run \`python -m scripts.evaluate_answers report\`: it counts **only
+   errors. Use `notes` for any important tradeoffs.
+3. Run `python -m scripts.evaluate_answers report`: it counts **only
    completely human-reviewed captured answers**; it never scores blank forms.
 
 Do not publish selected evidence text or review data unless you intend to
@@ -123,13 +123,13 @@ publish the fictional corpus and have checked for secrets or sensitive content.
 
 ## Independent citation checks: what they can and cannot prove
 
-Automated checks confirm whether citation IDs in \`[Evidence N]\` are valid,
+Automated checks confirm whether citation IDs in `[Evidence N]` are valid,
 whether the mapped chunk/document IDs match the supplied evidence, and whether
 references are malformed. **They do not verify that the cited excerpt supports
 the neighboring answer claim.** That is a human-reviewed rubric dimension.
 
 If a response contains zero citations, the check reports
-\`has_citations=false\`. A bare refusal of an unknowable exact fine may be
+`has_citations=false`. A bare refusal of an unknowable exact fine may be
 acceptable; an uncited affirmative policy claim is not.
 
 ## Quality improvement loop without cherry-picking
