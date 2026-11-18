@@ -1,5 +1,7 @@
 from typing import Any
 
+from google.genai import errors as genai_errors
+
 from src.indexing.bm25_index import BM25Index
 from src.indexing.embedding_client import GeminiEmbeddingClient
 from src.indexing.qdrant_store import QdrantStore
@@ -131,33 +133,58 @@ class HybridRetriever:
         sparse_limit: int = DEFAULT_SPARSE_LIMIT,
         fused_limit: int = DEFAULT_FUSED_LIMIT,
     ) -> list[dict[str, Any]]:
-        """
-        Run dense + sparse retrieval and combine
-        the rankings with Reciprocal Rank Fusion.
-        """
+        """Strict hybrid retrieval for evaluation.
 
+        NEVER silently downgrade evaluation to BM25, or hybrid accuracy metrics
+        would be misleading.
+        """
+        ranked, _mode = self.retrieve_with_mode(
+            query=query,
+            dense_limit=dense_limit,
+            sparse_limit=sparse_limit,
+            fused_limit=fused_limit,
+            allow_sparse_fallback=False,
+        )
+        return ranked
+
+    def retrieve_with_mode(
+        self,
+        query: str,
+        dense_limit: int = DEFAULT_DENSE_LIMIT,
+        sparse_limit: int = DEFAULT_SPARSE_LIMIT,
+        fused_limit: int = DEFAULT_FUSED_LIMIT,
+        *,
+        allow_sparse_fallback: bool = False,
+    ) -> tuple[list[dict[str, Any]], str]:
+        """Return (ranked_chunks, mode), with explicit application-only fallback.
+
+        When enabled, only Gemini 429 and 5xx service errors downgrade to BM25.
+        Invalid credentials, bad vectors, code bugs and Qdrant errors still fail.
+        """
         if not query.strip():
-            raise ValueError(
-                "Retrieval query cannot be empty"
-            )
+            raise ValueError("Retrieval query cannot be empty")
 
-        dense_results = self._dense_search(
-            query=query,
-            limit=dense_limit,
-        )
+        mode = "hybrid"
+        try:
+            dense_results = self._dense_search(query=query, limit=dense_limit)
+        except genai_errors.ClientError as exc:
+            if not allow_sparse_fallback or getattr(exc, "code", None) != 429:
+                raise
+            dense_results = []
+            mode = "bm25_fallback"
+        except genai_errors.ServerError as exc:
+            if not allow_sparse_fallback or getattr(exc, "code", None) not in (500, 502, 503, 504):
+                raise
+            dense_results = []
+            mode = "bm25_fallback"
 
-        sparse_results = self._sparse_search(
-            query=query,
-            limit=sparse_limit,
-        )
-
-        fused_results = reciprocal_rank_fusion(
+        sparse_results = self._sparse_search(query=query, limit=sparse_limit)
+        ranked = reciprocal_rank_fusion(
             dense_results=dense_results,
             sparse_results=sparse_results,
             limit=fused_limit,
         )
-
-        return fused_results
+        return ranked, mode
 
     def close(self) -> None:
         """
