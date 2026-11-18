@@ -44,12 +44,13 @@ class GeminiEmbeddingClient:
         if client is not None:
             # Injection for deterministic offline unit tests.
             self.client = client
-            return
-
-        api_key = os.getenv(selected)
-        if not api_key:
-            raise ValueError(f"{selected} is missing")
-        self.client = genai.Client(api_key=api_key)
+        else:
+            api_key = os.getenv(selected)
+            if not api_key:
+                raise ValueError(f"{selected} is missing")
+            self.client = genai.Client(api_key=api_key)
+        # Per-instance cache, not a global class cache retaining old clients.
+        self._query_cache = lru_cache(maxsize=512)(self._embed_query_uncached)
 
     @staticmethod
     def _extract_vectors(response: Any, expected_count: int) -> list[list[float]]:
@@ -90,8 +91,7 @@ class GeminiEmbeddingClient:
         )
         return self._extract_vectors(response, len(texts))
 
-    @lru_cache(maxsize=512)
-    def _embed_query_cached(self, clean_text: str) -> tuple[float, ...]:
+    def _embed_query_uncached(self, clean_text: str) -> tuple[float, ...]:
         """Only a completed successful response is cached."""
         prepared_query = f"task: question answering | query: {clean_text}"
         response = self.client.models.embed_content(
@@ -106,4 +106,4 @@ class GeminiEmbeddingClient:
         if not clean_text:
             raise ValueError("Query text cannot be empty")
         # Defensive copy: caller cannot mutate a cached vector.
-        return list(self._embed_query_cached(clean_text))
+        return list(self._query_cache(clean_text))
