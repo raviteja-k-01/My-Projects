@@ -40,6 +40,9 @@ class EnterpriseRAGPipeline:
     def answer(
         self,
         question: str,
+        *,
+        evaluation_trace: bool = False,
+        allow_sparse_fallback: bool = True,
     ) -> dict[str, Any]:
 
         question = question.strip()
@@ -63,7 +66,7 @@ class EnterpriseRAGPipeline:
             dense_limit=DEFAULT_DENSE_LIMIT,
             sparse_limit=DEFAULT_SPARSE_LIMIT,
             fused_limit=DEFAULT_FUSED_LIMIT,
-            allow_sparse_fallback=True,
+            allow_sparse_fallback=allow_sparse_fallback,
         )
 
         retrieval_seconds = (
@@ -130,7 +133,7 @@ class EnterpriseRAGPipeline:
         # 6. Final structured response
         # -------------------------------------------------
 
-        return {
+        response = {
             "question": question,
             "retrieval_mode": retrieval_mode,
 
@@ -171,6 +174,16 @@ class EnterpriseRAGPipeline:
                 ),
             },
         }
+
+        # Not exposed by FastAPI: the public endpoint uses evaluation_trace=False.
+        # Offline reviewers need the actual evidence text, not citation IDs alone.
+        if evaluation_trace:
+            response["evaluation_trace"] = {
+                "retrieved_chunk_ids": [item["chunk_id"] for item in candidates],
+                "selected_evidence": context_result["evidence"],
+            }
+
+        return response
 
     def close(self) -> None:
         """
