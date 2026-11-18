@@ -19,7 +19,7 @@ class EnterpriseRAGPipeline:
     Query
     → Hybrid retrieval
     → RRF
-    → Cross-encoder reranking
+    → Select evidence (cross-encoder intentionally disabled in V1)
     → Context building
     → Gemini generation
     → Citation mapping
@@ -58,11 +58,12 @@ class EnterpriseRAGPipeline:
 
         retrieval_start = time.perf_counter()
 
-        candidates = self.retriever.retrieve(
+        candidates, retrieval_mode = self.retriever.retrieve_with_mode(
             query=question,
             dense_limit=DEFAULT_DENSE_LIMIT,
             sparse_limit=DEFAULT_SPARSE_LIMIT,
             fused_limit=DEFAULT_FUSED_LIMIT,
+            allow_sparse_fallback=True,
         )
 
         retrieval_seconds = (
@@ -131,6 +132,7 @@ class EnterpriseRAGPipeline:
 
         return {
             "question": question,
+            "retrieval_mode": retrieval_mode,
 
             "answer": citation_result["answer"],
 
