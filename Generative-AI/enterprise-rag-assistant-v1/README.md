@@ -144,6 +144,13 @@ embedding calls (default: `GEMINI_API_KEY`; alternative:
 space. This is **explicit selection, not automatic credential rotation**.
 Use credentials in accordance with the API provider's usage limits.
 
+The generation model defaults to `gemini-3.6-flash`. Optionally set
+`GEMINI_GENERATION_MODEL` in the private `.env` to a different model
+**after confirming its availability and quota for the chosen project**.
+This does not affect the embedding model or the indexed vectors.
+Gemini HTTP 503 means the generation service is temporarily unavailable;
+the application reports this separately from embedding HTTP 429.
+
 **Prerequisites:** Your Qdrant collection is indexed and the compatible
 `data/bm25/` build artifacts are present. Simply cloning the repository
 does not provide these generated resources.
