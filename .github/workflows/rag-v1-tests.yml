@@ -28,3 +28,33 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Run offline tests (no API secrets)
         run: python -m pytest -q
+
+  build-retrieval-artifacts:
+    name: Offline ingestion + BM25 build
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: Generative-AI/enterprise-rag-assistant-v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: Generative-AI/enterprise-rag-assistant-v1/requirements-artifacts.txt
+      - name: Install pinned offline build dependencies
+        run: python -m pip install -r requirements-artifacts.txt
+      - name: Build and verify retrieval artifacts without API keys
+        run: python -m scripts.build_retrieval_artifacts
+      - name: Upload reproducible artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rag-v1-retrieval-artifacts
+          path: |
+            Generative-AI/enterprise-rag-assistant-v1/data/processed/*.jsonl
+            Generative-AI/enterprise-rag-assistant-v1/data/processed/retrieval_artifact_manifest.json
+            Generative-AI/enterprise-rag-assistant-v1/data/bm25/
+          if-no-files-found: error
+          retention-days: 7
