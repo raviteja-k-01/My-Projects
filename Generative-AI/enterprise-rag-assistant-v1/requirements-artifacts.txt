@@ -1,4 +1,4 @@
 # Isolated, pinned dependencies for generating retrieval artifacts off-host.
 # These are not the FastAPI/UI runtime requirements.
 pymupdf==1.28.2
-bm25s==0.2.14
+bm25s==0.3.16
