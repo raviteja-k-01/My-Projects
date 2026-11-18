@@ -152,5 +152,10 @@ def test_api_enforces_rate_limit_without_using_gemini(monkeypatch):
         second = client.post("/ask", json={"question": "Second"})
         assert second.status_code == 429
         assert second.headers["Retry-After"] == "60"
+        # FastAPI runs dependencies (rate limit) before request validation.
+        # Use a fresh rate-limit budget to test Pydantic validation itself.
+        monkeypatch.setattr(
+            module, "rate_limiter", SlidingWindowRateLimiter(limit=10, window_seconds=60)
+        )
         assert client.post("/ask", json={"question": "   "}).status_code == 422
         assert client.post("/ask", json={"question": "x" * 1001}).status_code == 422
