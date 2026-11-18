@@ -192,3 +192,50 @@ def test_qdrant_audit_rejects_unexpected_id_type():
     store = _store_with_points([_point("uuid-id")])
     with pytest.raises(ValueError, match="Unexpected Qdrant point ID"):
         store.existing_point_payloads()
+
+
+def test_embedding_client_uses_separate_content_objects_and_768_dims():
+    """Regression: Embedding 2 aggregates bare parts, not Content objects."""
+    from google.genai import types
+    from src.indexing.embedding_client import GeminiEmbeddingClient
+
+    class FakeModels:
+        def __init__(self):
+            self.calls = []
+
+        def embed_content(self, *, model, contents, config):
+            self.calls.append((model, contents, config))
+            return SimpleNamespace(embeddings=[
+                SimpleNamespace(values=[0.1] * 768)
+                for _ in contents
+            ])
+
+    client = object.__new__(GeminiEmbeddingClient)
+    client.client = SimpleNamespace(models=FakeModels())
+    vectors = client.embed_documents(["first", "second"])
+
+    assert len(vectors) == 2
+    assert all(len(v) == 768 for v in vectors)
+    model, contents, config = client.client.models.calls[0]
+    assert model == "gemini-embedding-2"
+    assert all(isinstance(c, types.Content) for c in contents)
+    assert [c.parts[0].text for c in contents] == [
+        "title: none | text: first",
+        "title: none | text: second",
+    ]
+    assert config.output_dimensionality == 768
+
+
+def test_embedding_client_refuses_aggregated_or_missing_vector():
+    from src.indexing.embedding_client import GeminiEmbeddingClient
+
+    class FakeModels:
+        def embed_content(self, **kwargs):
+            return SimpleNamespace(embeddings=[
+                SimpleNamespace(values=[0.1] * 768)
+            ])
+
+    client = object.__new__(GeminiEmbeddingClient)
+    client.client = SimpleNamespace(models=FakeModels())
+    with pytest.raises(ValueError, match="Embedding count"):
+        client.embed_documents(["first", "second"])
