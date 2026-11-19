@@ -75,8 +75,10 @@ Current **BM25-only baseline on 29 evaluable questions**:
 - Recall@20: **0.6833**
 
 This is a **retrieval baseline, not an answer accuracy score**. The current
-live strict-hybrid evaluation is only **5/30 checkpointed** due to Gemini
-quota exhaustion. It is not appropriate to claim a full current hybrid score
+live strict-hybrid evaluation is only **5/30 checkpointed**, with **5/30
+answers captured and 0/30 human-reviewed**. The 2026-11-19 bounded Q006
+attempt stopped at the first embedding HTTP 429, before generation.
+It is not appropriate to claim a full current hybrid score
 until the remaining questions have run. Prior experiment results are not
 presented as current verified performance.
 
@@ -107,17 +109,44 @@ python -m scripts.evaluate_answers inspect Q001   # 0 API calls
 python -m scripts.evaluate_answers report         # 0 API calls
 ```
 
+For all 30 question states and an evidence packet, use the **exact indexed
+corpus** (the repository-local chunk file may be absent):
+
+```bash
+python -m scripts.evaluate_answers status \
+  --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl \
+  --output data/processed/evaluation_progress.json \
+  --review-packet data/processed/answer_review_packet.md
+```
+
 To capture **one real end-to-end answer** only when the embedding and
 generation APIs have available quota:
 
 ```bash
-python -m scripts.evaluate_answers capture --max-new 1
+python -m scripts.evaluate_answers capture --max-new 1 \
+  --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl
 ```
+
+This command reuses saved retrieval and answers, saves each new strict-hybrid
+retrieval **before generation**, then captures through the shared replay path.
+After a generation failure, rerunning uses its saved ranking without another
+embedding request. Both capture and retrieval-only evaluation default to one
+new question. Each model call allows one provider attempt; a quota/service
+failure stops the batch. Do not retry a known quota failure blindly.
+
+Questions without expected gold chunks still undergo retrieval; that gold
+label never controls production abstention. Actual empty evidence returns a
+clear insufficiency response without a generation call. Older skipped empty
+checkpoints are distinguished from actual empty retrieval and are not rewritten.
 
 Each successful capture is checkpointed. Review forms are separate JSON files
 under `data/processed/answer_review_forms/`; they are never overwritten.
 To complete the original 120-question plan, add manually vetted, held-out
 gold questions and verify their underlying evidence.
+
+See [engineering audit and resume commands](docs/ENGINEERING_STATUS.md) and
+[preliminary source comparison](docs/ANSWER_REVIEW_FINDINGS.md). Source comparison
+by an assistant is not an independent human review or an answer-accuracy score.
 
 ## Running locally
 
@@ -172,6 +201,12 @@ normally at `http://127.0.0.1:8501`. These are **local** addresses,
 not proof of public hosting.
 
 ## Release work still required
+
+The [offline continuation review](docs/OFFLINE_REVIEW.md) records a remaining
+semantic gap: unsupported claims with real citation IDs can pass structural
+checks. Mocked abstention tests do not establish real-model abstention accuracy.
+The retired reranker A/B scripts now redirect operators to the supported
+evaluation workflow without initializing services.
 
 - Complete the 29-question strict hybrid retrieval evaluation.
 - Capture and **independently review actual generated answers**; investigate

@@ -7,3 +7,13 @@ __pycache__/
 .env
 tests/
 .vscode/
+.env.*
+.venv/
+venv/
+**/__pycache__
+backups/
+data/processed/
+data/qdrant/
+data/qdrant_validation/
+scripts/_scratch/
+# Keep data/bm25: the serving image requires the exact compatible local index.

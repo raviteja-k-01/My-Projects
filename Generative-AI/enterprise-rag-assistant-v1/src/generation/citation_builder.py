@@ -64,6 +64,12 @@ class CitationBuilder:
             item["evidence_id"]: item
             for item in evidence
         }
+        if len(evidence_map) != len(evidence):
+            raise ValueError("Duplicate evidence IDs")
+        # Do not silently discard references outside supported citation groups.
+        outside_groups = EVIDENCE_GROUP_PATTERN.sub("", answer)
+        if EVIDENCE_ID_PATTERN.search(outside_groups):
+            raise ValueError("Malformed or unbracketed evidence reference")
 
         citation_ids: list[int] = []
         seen_ids: set[int] = set()

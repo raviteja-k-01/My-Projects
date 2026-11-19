@@ -48,7 +48,15 @@ class GeminiEmbeddingClient:
             api_key = os.getenv(selected)
             if not api_key:
                 raise ValueError(f"{selected} is missing")
-            self.client = genai.Client(api_key=api_key)
+            # One provider attempt per uncached query. Evaluation stops on quota
+            # or service failure; the SDK must not silently spend five attempts.
+            self.client = genai.Client(
+                api_key=api_key,
+                http_options=types.HttpOptions(
+                    timeout=120_000,
+                    retry_options=types.HttpRetryOptions(attempts=1),
+                ),
+            )
         # Per-instance cache, not a global class cache retaining old clients.
         self._query_cache = lru_cache(maxsize=512)(self._embed_query_uncached)
 

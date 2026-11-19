@@ -162,38 +162,69 @@ def test_report_counts_only_completed_human_reviews():
         validate_review(first, gold[0])
 
 
-def test_repeated_live_capture_is_checkpointed_and_strict(tmp_path, monkeypatch):
+@pytest.mark.parametrize("provider_failure", ["503", "429"])
+def test_repeated_live_capture_is_checkpointed_and_strict(tmp_path, monkeypatch, provider_failure):
     gold_file = tmp_path / "gold.jsonl"
     gold_file.write_text(
         "".join(json.dumps(row) + "\n" for row in gold_records()), encoding="utf-8"
     )
     cases_file = tmp_path / "cases.jsonl"
     review_dir = tmp_path / "reviews"
-    calls = []
+    retrieval_calls = []
+    generation_calls = []
+    from scripts import evaluate_hybrid_retrieval_resumable as retrieval
+    from scripts.build_dense_index import EXPECTED_CHUNKS_SHA256
+    from src.evaluation import replay
+    from src.generation import answer_generator
+    chunk = dict(fake_response()["evaluation_trace"]["selected_evidence"][0])
+    monkeypatch.setattr(replay, "load_replay_inputs", lambda **kwargs: (
+        retrieval.load_checkpoint(kwargs["checkpoint_path"], kwargs["gold"]),
+        {chunk["chunk_id"]: chunk},
+    ))
+    monkeypatch.setattr(retrieval, "retrieval_provenance", lambda path: {
+        "schema_version": 1, "retrieval_mode": "hybrid", "retrieval_performed": True,
+        "corpus_sha256": EXPECTED_CHUNKS_SHA256,
+    })
 
-    class FakePipeline:
-        def answer(self, question, *, evaluation_trace, allow_sparse_fallback):
-            calls.append((question, evaluation_trace, allow_sparse_fallback))
-            assert evaluation_trace is True
-            assert allow_sparse_fallback is False
-            if len(calls) == 2:
-                raise RuntimeError("Simulated generation unavailable")
-            return fake_response()
+    class FakeRetriever:
+        def retrieve(self, query, **kwargs):
+            retrieval_calls.append(query)
+            return [{"chunk_id": chunk["chunk_id"], "rank": 1, "chunk": chunk}]
 
         def close(self):
             pass
 
-    import src.rag.rag_pipeline as pipeline_module
-    monkeypatch.setattr(pipeline_module, "EnterpriseRAGPipeline", FakePipeline)
+    class FakeGenerator:
+        def generate(self, question, context):
+            generation_calls.append(question)
+            if len(generation_calls) == 2:
+                if provider_failure == "429":
+                    from google.genai.errors import ClientError
+                    raise ClientError(429, {"error": {"message": "simulated quota"}})
+                raise RuntimeError("Simulated generation unavailable")
+            return {"answer": fake_response()["answer"], "model": "offline", "usage": {}}
 
-    evaluate_answers.capture(gold_file, cases_file, review_dir, max_new=1)
+    monkeypatch.setattr(retrieval, "HybridRetriever", FakeRetriever)
+    monkeypatch.setattr(answer_generator, "GroundedAnswerGenerator", FakeGenerator)
+    kwargs = {"checkpoint_path": tmp_path / "checkpoint", "chunks_path": tmp_path / "chunks"}
+
+    evaluate_answers.capture(gold_file, cases_file, review_dir, max_new=1, **kwargs)
     assert evaluate_answers._read_cases(cases_file)["Q001"]["run"] is not None
+    first = evaluate_answers._read_cases(cases_file)["Q001"]
+    review_before = (review_dir / "Q001.json").read_bytes()
 
     # A later quota error does not discard the prior run or a human review.
     with pytest.raises(SystemExit) as exc:
-        evaluate_answers.capture(gold_file, cases_file, review_dir, max_new=1)
+        evaluate_answers.capture(gold_file, cases_file, review_dir, max_new=1, **kwargs)
     assert exc.value.code == 75
     saved = evaluate_answers._read_cases(cases_file)
     assert saved["Q001"]["run"] is not None
     assert saved["Q002"]["run"] is None
-    assert len(calls) == 2
+    assert len(retrieval_calls) == len(generation_calls) == 2
+    assert set(retrieval.load_checkpoint(kwargs["checkpoint_path"], gold_records())) == {"Q001", "Q002"}
+    # Retry generation only, including the question with no expected chunks.
+    evaluate_answers.capture(gold_file, cases_file, review_dir, max_new=1, **kwargs)
+    assert len(retrieval_calls) == 2
+    assert len(generation_calls) == 3
+    assert evaluate_answers._read_cases(cases_file)["Q001"] == first
+    assert (review_dir / "Q001.json").read_bytes() == review_before

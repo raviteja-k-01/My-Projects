@@ -40,11 +40,13 @@ async def lifespan(app: FastAPI):
     # Load the RAG system once when FastAPI starts
     rag_pipeline = EnterpriseRAGPipeline()
 
-    yield
-
-    # Close resources when FastAPI shuts down
-    if rag_pipeline is not None:
-        rag_pipeline.close()
+    try:
+        yield
+    finally:
+        # Also release resources when lifespan exits through an exception.
+        pipeline, rag_pipeline = rag_pipeline, None
+        if pipeline is not None:
+            pipeline.close()
 
 
 # --------------------------------------------------

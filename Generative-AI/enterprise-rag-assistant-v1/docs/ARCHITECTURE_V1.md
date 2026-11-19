@@ -3,6 +3,10 @@
 Status: development branch; this file is a design and implementation status
 record, **not** proof of production readiness.
 
+The latest local verification and quota blocker are recorded in
+[Engineering status](ENGINEERING_STATUS.md). New answer-evaluation captures
+persist retrieval before generation and resume using that checkpoint.
+
 ## 1. Immutable corpus, offline build, and online serving
 
 ```text
@@ -101,7 +105,8 @@ As of 2026-11-18, operator-provided local logs showed:
 - 1,985 Qdrant points verified by ID, full payload and vector dimensions.
 - 1,985 BM25 payloads exactly match the Qdrant collection (zero mismatches).
 - Live hybrid retrieval returned chunks, including SEC-IR-004.
-- 29 retrieval-evaluable gold questions (1 unanswerable).
+- 29 retrieval-evaluable gold questions. Three questions are unanswerable;
+  only Q027 has no expected retrieval chunk.
 - BM25 on those 29: MRR 0.5087; Hit@5 0.8276; Recall@20 0.6833.
 - Live hybrid evaluation has **5 out of 30 checkpointed**; 29-question
   hybrid metrics are NOT yet measured.

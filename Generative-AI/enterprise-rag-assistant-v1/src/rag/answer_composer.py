@@ -14,6 +14,9 @@ from src.retrieval.context_builder import ContextBuilder
 
 
 DEFAULT_CONTEXT_CANDIDATES = 8
+INSUFFICIENT_EVIDENCE_ANSWER = (
+    "There is insufficient evidence in the available policy documents to answer this question."
+)
 
 
 def compose_answer(
@@ -47,17 +50,20 @@ def compose_answer(
 
     begin = time.perf_counter() if total_start is None else total_start
     context_result = context_builder.build(candidates=candidates[:DEFAULT_CONTEXT_CANDIDATES])
-    if not context_result["context"]:
-        raise ValueError("No usable evidence was found")
-
-    generation_start = time.perf_counter()
-    generated = generator.generate(question=question, context=context_result["context"])
-    generation_seconds = time.perf_counter() - generation_start
-
-    citation_result = citation_builder.build(
-        answer=generated["answer"],
-        evidence=context_result["evidence"],
-    )
+    if context_result["context"]:
+        generation_start = time.perf_counter()
+        generated = generator.generate(question=question, context=context_result["context"])
+        generation_seconds = time.perf_counter() - generation_start
+        citation_result = citation_builder.build(
+            answer=generated["answer"], evidence=context_result["evidence"],
+        )
+    else:
+        # This decision uses only the selected evidence, never evaluation labels.
+        generated = {"model": None, "usage": {}}
+        generation_seconds = 0.0
+        citation_result = {
+            "answer": INSUFFICIENT_EVIDENCE_ANSWER, "citations": [], "citation_count": 0,
+        }
 
     response: dict[str, Any] = {
         "question": question,

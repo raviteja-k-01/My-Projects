@@ -65,6 +65,14 @@ def test_unknown_server_failure_propagates_instead_of_mislabeling_as_quota(monke
     assert exc.value.code == 599
 
 
+def test_raw_generation_429_is_not_mislabeled_as_embedding_failure():
+    error = answer_generator.errors.ClientError(429, {"error": {"message": "simulated quota"}})
+    chain = RaisingChain(error)
+    with pytest.raises(RuntimeError, match="generation API quota"):
+        make_generator(chain).generate(question="What must be recorded?", context="[Evidence 1] ...")
+    assert chain.calls == 1
+
+
 def test_generation_model_is_explicitly_configurable_without_changing_embedding_model(
     monkeypatch,
 ):

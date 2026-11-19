@@ -1,5 +1,16 @@
 import pytest
 
+
+@pytest.mark.parametrize("answer", [
+    "Invented claim, Evidence 99.",
+    "Invented claim [Evidence 99, 100].",
+    "Claim [Evidence 1] and another claim Evidence 99.",
+])
+def test_rejects_malformed_or_unbracketed_evidence_mentions(answer):
+    from src.generation.citation_builder import CitationBuilder
+    with pytest.raises(ValueError, match="evidence reference"):
+        CitationBuilder().build(answer, [{"evidence_id": 1, "chunk_id": "A"}])
+
 from src.generation.citation_builder import CitationBuilder
 
 

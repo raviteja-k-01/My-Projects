@@ -220,10 +220,13 @@ A single severe hallucination matters more than a polished average score.
 If `capture --replay-hybrid-checkpoint` returns **HTTP 503** from Gemini
 generation, retrieval replay has succeeded but the generation provider was
 temporarily unavailable. This is **not** a 429 daily-embedding-quota error.
-Google documents 503 as model/service overload. The completed Q001 historical
-retrieval checkpoint is still available and no answer has been captured.
+Google documents 503 as model/service overload. The relevant historical
+retrieval checkpoint remains available; that failed attempt creates no new
+answer. Previously captured answers are preserved.
 The generator reports a clean error rather than an unhandled traceback.
-The SDK already performs bounded retries; do not add repeated blind requests.
+The pinned generation SDK maps `max_retries=1` to one total provider attempt.
+The embedding client also explicitly uses one total attempt. Do not add
+repeated blind requests or change credentials/models to conceal quota failures.
 
 An operator can choose another **provider-confirmed available** generation
 model by setting `GEMINI_GENERATION_MODEL` in their private local `.env`.

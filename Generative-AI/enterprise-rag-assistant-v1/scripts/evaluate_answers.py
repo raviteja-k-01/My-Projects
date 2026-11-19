@@ -51,7 +51,12 @@ def _read_cases(path: Path) -> dict[str, dict[str, Any]]:
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         if not line.strip():
             continue
-        case = json.loads(line)
+        try:
+            case = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Case line {line_number} is invalid JSON") from exc
+        if not isinstance(case, dict):
+            raise ValueError(f"Case line {line_number} is not an object")
         question_id = case.get("question_id")
         if not isinstance(question_id, str) or question_id in cases:
             raise ValueError(f"Duplicate/invalid case on line {line_number}")
@@ -151,7 +156,10 @@ def prepare(gold_path: Path = DEFAULT_GOLD_PATH, cases_path: Path = DEFAULT_CASE
 
 
 def capture(gold_path: Path = DEFAULT_GOLD_PATH, cases_path: Path = DEFAULT_CASES,
-            review_dir: Path = DEFAULT_REVIEWS, max_new: int = 1) -> None:
+            review_dir: Path = DEFAULT_REVIEWS, max_new: int = 1, *,
+            checkpoint_path: Path = Path("data/processed/hybrid_retrieval_live.jsonl"),
+            chunks_path: Path = Path("data/processed/chunks.jsonl")) -> None:
+    """Checkpoint each missing retrieval before generation; reuse saved work."""
     if max_new < 1:
         raise ValueError("--max-new must be positive")
     gold, cases, _reviews = prepare(gold_path, cases_path, review_dir)
@@ -160,40 +168,36 @@ def capture(gold_path: Path = DEFAULT_GOLD_PATH, cases_path: Path = DEFAULT_CASE
         print("CAPTURE COMPLETE: all answers already saved.")
         return
 
-    # Import/initialize expensive remote resources only for an explicit live run.
-    from src.rag.rag_pipeline import EnterpriseRAGPipeline
+    from scripts.evaluate_hybrid_retrieval_resumable import run as retrieve_pending
+    from src.evaluation.replay import load_replay_inputs
 
-    pipeline = EnterpriseRAGPipeline()
-    captured = 0
-    try:
-        for record in pending[:max_new]:
-            question_id = record["question_id"]
-            print(f"CAPTURING: {question_id} (hybrid only)", flush=True)
+    checkpoints, _chunks = load_replay_inputs(
+        gold=gold, checkpoint_path=checkpoint_path, chunks_path=chunks_path, allow_empty=True,
+    )
+    print(f"BUDGET: at most {max_new} new retrievals and {max_new} generations; one attempt each.")
+    for record in pending[:max_new]:
+        question_id = record["question_id"]
+        if question_id not in checkpoints:
             try:
-                result = pipeline.answer(
-                    record["question"],
-                    evaluation_trace=True,
-                    allow_sparse_fallback=False,
+                retrieve_pending(
+                    output=checkpoint_path, max_new=1, gold_path=gold_path,
+                    chunks_path=chunks_path, question_ids={question_id},
                 )
             except genai_errors.ClientError as exc:
-                if getattr(exc, "code", None) == 429:
-                    print("STOPPED: Gemini quota exhausted. Previous answers saved.")
-                    raise SystemExit(75) from None
-                raise
-            except RuntimeError as exc:
-                # Generation client wraps some 429 errors into RuntimeError.
-                print(f"STOPPED: generation failed; saved answers preserved: {exc}")
+                if getattr(exc, "code", None) != 429:
+                    raise
+                print("STOPPED: embedding quota exhausted; checkpoints and answers preserved.")
                 raise SystemExit(75) from None
-
-            cases[question_id] = attach_capture(cases[question_id], result)
-            _save_cases(cases_path, gold, cases)
-            captured += 1
-            print(f"SAVED: {question_id} | total: "
-                  f"{sum(cases[g['question_id']]['run'] is not None for g in gold)}/{len(gold)}",
-                  flush=True)
-    finally:
-        pipeline.close()
-    print(f"NEW CAPTURES: {captured} | No accuracy scores inferred.")
+            except genai_errors.ServerError as exc:
+                print(f"STOPPED: embedding service HTTP {exc.code}; checkpoints preserved.")
+                raise SystemExit(75) from None
+        # Replay revalidates the file committed by retrieval before spending a
+        # generation request. Failure leaves that checkpoint available next run.
+        capture_replay(
+            gold_path=gold_path, cases_path=cases_path, review_dir=review_dir,
+            checkpoint_path=checkpoint_path, chunks_path=chunks_path,
+            max_new=1, question_ids={question_id},
+        )
 
 
 def preview_replay(
@@ -213,8 +217,6 @@ def preview_replay(
     )
     candidates = replay_candidates(question_id, checkpoints, chunks)
     context = ContextBuilder(max_chunks=8, max_context_tokens=4000).build(candidates[:8])
-    if not context["context"]:
-        raise ValueError("No evidence selected from saved checkpoint")
     print("OFFLINE HYBRID REPLAY PREVIEW — NO GEMINI CALLS")
     print(f"QUESTION: {question_id} | SAVED RANKED CHUNKS: {len(candidates)}")
     print(f"SELECTED EVIDENCE: {context['evidence_count']} | TOKEN ESTIMATE: {context['total_tokens']}")
@@ -222,7 +224,10 @@ def preview_replay(
         print(f"  [Evidence {item['evidence_id']}] {item['chunk_id']} "
               f"(document {item['document_id']}, page {item['page_start']})")
     print("RETRIEVAL SOURCE: saved_hybrid_checkpoint (historical; not a fresh ranking)")
-    print("No generated answer. Live capture in replay mode will use generation only.")
+    if context["context"]:
+        print("No generated answer. Live capture in replay mode will use generation only.")
+    else:
+        print("EMPTY EVIDENCE: capture will save an insufficiency response without a generation request.")
 
 
 def capture_replay(
@@ -233,6 +238,7 @@ def capture_replay(
     checkpoint_path: Path = Path("data/processed/hybrid_retrieval_live.jsonl"),
     chunks_path: Path = Path("data/processed/chunks.jsonl"),
     max_new: int = 1,
+    question_ids: set[str] | None = None,
 ) -> None:
     """Use saved real hybrid rankings, avoiding another query embedding call.
 
@@ -241,7 +247,7 @@ def capture_replay(
     """
     if max_new < 1:
         raise ValueError("--max-new must be positive")
-    from src.evaluation.replay import load_replay_inputs, replay_candidates
+    from src.evaluation.replay import is_replayable, load_replay_inputs, replay_candidates
     from src.generation.answer_generator import GroundedAnswerGenerator
     from src.generation.citation_builder import CitationBuilder
     from src.rag.answer_composer import compose_answer
@@ -254,25 +260,29 @@ def capture_replay(
     pending = [
         item for item in gold
         if cases[item["question_id"]]["run"] is None
+        and (question_ids is None or item["question_id"] in question_ids)
         and item["question_id"] in checkpoints
-        and checkpoints[item["question_id"]]["retrieved_chunk_ids"]
+        and is_replayable(checkpoints[item["question_id"]])
     ]
     if not pending:
         print(
             "NO PENDING SAVED HYBRID RESULTS. "
-            "Additional questions need new hybrid retrieval when quota permits."
+            "Run the offline status command to distinguish missing retrieval, legacy skips, "
+            "and already captured answers."
         )
         return
 
     # Does not initialize HybridRetriever, GeminiEmbeddingClient, or Qdrant.
     # Only the generation model is constructed, and only when needed.
-    generator = GroundedAnswerGenerator()
+    generator = None
     context_builder = ContextBuilder(max_chunks=8, max_context_tokens=4000)
     citation_builder = CitationBuilder()
 
     for record in pending[:max_new]:
         question_id = record["question_id"]
         candidates = replay_candidates(question_id, checkpoints, chunks)
+        if generator is None and context_builder.build(candidates[:8])["context"]:
+            generator = GroundedAnswerGenerator()
         print(
             f"GENERATING: {question_id} from {len(candidates)} saved hybrid chunks "
             "(ZERO new embedding calls)", flush=True
@@ -348,6 +358,46 @@ def report(gold_path: Path = DEFAULT_GOLD_PATH, cases_path: Path = DEFAULT_CASES
     return summary
 
 
+def status(*, chunks_path: Path,
+           checkpoint_path: Path = Path("data/processed/hybrid_retrieval_live.jsonl"),
+           output: Path | None = None, review_packet: Path | None = None,
+           retrieval_blocker: str | None = None) -> dict[str, Any]:
+    """Validate all saved work and show every question without model calls."""
+    from src.evaluation.progress import build_progress, format_review_packet
+    from src.evaluation.replay import load_replay_inputs
+
+    # A typo in a report destination must not replace source evaluation data.
+    protected = {p.resolve() for p in (
+        DEFAULT_GOLD_PATH, DEFAULT_CASES, checkpoint_path, chunks_path,
+    )}
+    destinations = [p.resolve() for p in (output, review_packet) if p is not None]
+    if len(destinations) != len(set(destinations)):
+        raise ValueError("Status and review packet must have different destinations")
+    for destination in destinations:
+        if destination in protected or destination.is_relative_to(DEFAULT_REVIEWS.resolve()):
+            raise ValueError("Report destination would overwrite protected evaluation data")
+    gold, cases, reviews = prepare()
+    checkpoints, chunks = load_replay_inputs(
+        gold=gold, checkpoint_path=checkpoint_path, chunks_path=chunks_path, allow_empty=True,
+    )
+    progress = build_progress(gold, cases, reviews, checkpoints, chunks,
+                              retrieval_blocker=retrieval_blocker)
+    print("ID    TYPE             ANSWERABLE EXPECTED RETRIEVED ANSWER REVIEW STATUS")
+    for row in progress["questions"]:
+        print(f"{row['question_id']} {row['question_type']:<16} {str(row['gold_answerable']):<10} "
+              f"{row['expected_chunk_count']:<8} {str(row['retrieved_chunk_count']):<9} "
+              f"{str(row['answer_status'] == 'GENERATION COMPLETE'):<6} "
+              f"{row['human_review']:<10} {row['status']}")
+    print("No factual accuracy inferred. Missing expected IDs are diagnostics, not semantic fact scores.")
+    if output:
+        _write_atomically(output, json.dumps(progress, ensure_ascii=False, indent=2) + "\n")
+        print(f"STATUS FILE: {output}")
+    if review_packet:
+        _write_atomically(review_packet, format_review_packet(gold, cases, checkpoints, chunks))
+        print(f"REVIEW PACKET: {review_packet}")
+    return progress
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -372,6 +422,14 @@ def main() -> None:
     inspect_parser = commands.add_parser("inspect", help="Inspect one answer, evidence and gold facts, offline")
     inspect_parser.add_argument("question_id", type=str)
     commands.add_parser("report", help="Summarize real human review only, offline")
+    status_parser = commands.add_parser("status", help="OFFLINE: every question, integrity and review state")
+    status_parser.add_argument("--chunks", type=Path, required=True)
+    status_parser.add_argument("--retrieval-checkpoint", type=Path,
+                               default=Path("data/processed/hybrid_retrieval_live.jsonl"))
+    status_parser.add_argument("--output", type=Path)
+    status_parser.add_argument("--review-packet", type=Path)
+    status_parser.add_argument("--retrieval-blocker", type=str,
+                               help="Record an observed blocker for missing retrieval; does not claim each question was attempted")
     args = parser.parse_args()
     if args.command == "prepare":
         prepare()
@@ -383,7 +441,8 @@ def main() -> None:
                 checkpoint_path=args.retrieval_checkpoint,
             )
         else:
-            capture(max_new=args.max_new)
+            capture(max_new=args.max_new, chunks_path=args.chunks,
+                    checkpoint_path=args.retrieval_checkpoint)
     elif args.command == "preview-replay":
         preview_replay(
             question_id=args.question_id,
@@ -392,6 +451,10 @@ def main() -> None:
         )
     elif args.command == "inspect":
         inspect(args.question_id)
+    elif args.command == "status":
+        status(chunks_path=args.chunks, checkpoint_path=args.retrieval_checkpoint,
+               output=args.output, review_packet=args.review_packet,
+               retrieval_blocker=args.retrieval_blocker)
     else:
         report()
 

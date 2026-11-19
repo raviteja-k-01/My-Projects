@@ -1,0 +1,74 @@
+[
+  {
+    "id": "Q026",
+    "question": "What is the exact legal deadline, in hours, for Aurelius to notify every regulator after a personal-data breach?",
+    "chunk": {
+      "chunk_id": "SEC-IR-004-B0010",
+      "chunk_index": 10,
+      "content_type": "body",
+      "document_id": "SEC-IR-004",
+      "document_name": "Security Incident Response & Business Continuity Manual",
+      "page_end": 8,
+      "page_start": 8,
+      "section_number": "1",
+      "section_title": "Purpose, Scope and Manual Authority",
+      "source_file": "10_SEC-IR-004_Incident_Response.pdf",
+      "subsection_number": "1.5",
+      "subsection_title": "No legal deadline inference",
+      "table_caption": null,
+      "table_index": null,
+      "table_row_end": null,
+      "table_row_start": null,
+      "text": "1 Purpose, Scope and Manual Authority\n1.5 No legal deadline inference\n\nNo legal deadline inference is governed as part of Purpose, Scope and Manual Authority. Responders prioritize safety, containment, evidence preservation and restoration of business services according to the best available facts.\n\nFor legal, deadline, inference, responders use the least disruptive action that achieves containment or recovery while preserving necessary evidence. Incident actions, decisions, severity changes and exceptions are recorded in the designated incident record so that response remains coordinated and reviewable.\n\n• Record the time, actor, action, affected assets and reason for material response decisions.\n• Reassess severity and business impact whenever new evidence materially changes the working hypothesis.\n• Escalate specialist decisions to the function that owns them rather than making legal, privacy or client commitments inside the technical response team.",
+      "token_count": 242
+    }
+  },
+  {
+    "id": "Q027",
+    "question": "What exact monetary fine will Aurelius receive if it violates a privacy requirement?",
+    "chunk": {
+      "chunk_id": "SEC-POL-01-B0135",
+      "chunk_index": 135,
+      "content_type": "body",
+      "document_id": "SEC-POL-01",
+      "document_name": "Information Security Policy & Procedures Manual",
+      "page_end": 105,
+      "page_start": 105,
+      "section_number": "21",
+      "section_title": "Security Exceptions and Risk Acceptance",
+      "source_file": "03_SEC-POL-01_Information_Security.pdf",
+      "subsection_number": "21.2",
+      "subsection_title": "Compensating controls",
+      "table_caption": null,
+      "table_index": null,
+      "table_row_end": null,
+      "table_row_start": null,
+      "text": "21 Security Exceptions and Risk Acceptance\n21.2 Compensating controls\n\nCompensating controls is governed as part of Security Exceptions and Risk Acceptance. The control is mandatory for systems, workers and information within scope unless an approved security exception explicitly applies.\n\nImplementation for compensating, controls must be technically enforceable where feasible, monitored for material failure and documented by the accountable Control Owner. Control Owners must implement the requirement in managed technology, keep evidence of operation and escalate gaps through Security Governance & Risk.\n\n• Workers protect credentials, devices and information and report suspected security events promptly.\n• System and Data Owners classify assets/data and fund required controls.\n• Do not use convenience, delivery pressure or a legacy practice as an undocumented exception.\n• Where a control cannot be met, use the formal exception and compensating-control process before normal operation continues.\n\nOperational scenario S14: A client requires stricter handling than Aurelius baseline. Apply the requirements in Information Security Policy & Procedures Manual to the facts, confirm the relevant source-of-truth record and route any specialist issue to the controlling document or function. If a required fact is missing, do not invent it; obtain the controlled record or specialist decision.",
+      "token_count": 351
+    }
+  },
+  {
+    "id": "Q028",
+    "question": "What exact additional security requirements does a specific unnamed client impose beyond Aurelius's standard security baseline?",
+    "chunk": {
+      "chunk_id": "SEC-POL-01-B0135",
+      "chunk_index": 135,
+      "content_type": "body",
+      "document_id": "SEC-POL-01",
+      "document_name": "Information Security Policy & Procedures Manual",
+      "page_end": 105,
+      "page_start": 105,
+      "section_number": "21",
+      "section_title": "Security Exceptions and Risk Acceptance",
+      "source_file": "03_SEC-POL-01_Information_Security.pdf",
+      "subsection_number": "21.2",
+      "subsection_title": "Compensating controls",
+      "table_caption": null,
+      "table_index": null,
+      "table_row_end": null,
+      "table_row_start": null,
+      "text": "21 Security Exceptions and Risk Acceptance\n21.2 Compensating controls\n\nCompensating controls is governed as part of Security Exceptions and Risk Acceptance. The control is mandatory for systems, workers and information within scope unless an approved security exception explicitly applies.\n\nImplementation for compensating, controls must be technically enforceable where feasible, monitored for material failure and documented by the accountable Control Owner. Control Owners must implement the requirement in managed technology, keep evidence of operation and escalate gaps through Security Governance & Risk.\n\n• Workers protect credentials, devices and information and report suspected security events promptly.\n• System and Data Owners classify assets/data and fund required controls.\n• Do not use convenience, delivery pressure or a legacy practice as an undocumented exception.\n• Where a control cannot be met, use the formal exception and compensating-control process before normal operation continues.\n\nOperational scenario S14: A client requires stricter handling than Aurelius baseline. Apply the requirements in Information Security Policy & Procedures Manual to the facts, confirm the relevant source-of-truth record and route any specialist issue to the controlling document or function. If a required fact is missing, do not invent it; obtain the controlled record or specialist decision.",
+      "token_count": 351
+    }
+  }
+]

@@ -57,11 +57,21 @@ def test_explicit_primary_or_secondary_key(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY_1", "secondary")
     monkeypatch.setattr(
         embedding_client.genai, "Client",
-        lambda *, api_key: called_keys.append(api_key) or SimpleNamespace(),
+        lambda *, api_key, http_options: called_keys.append(api_key) or SimpleNamespace(),
     )
     embedding_client.GeminiEmbeddingClient(key_env="GEMINI_API_KEY")
     embedding_client.GeminiEmbeddingClient(key_env="GEMINI_API_KEY_1")
     assert called_keys == ["primary", "secondary"]
+
+
+def test_embedding_sdk_is_limited_to_one_provider_attempt(monkeypatch):
+    options = []
+    monkeypatch.setenv("GEMINI_API_KEY", "test-placeholder")
+    monkeypatch.setattr(embedding_client.genai, "Client",
+                        lambda **kwargs: options.append(kwargs["http_options"]) or SimpleNamespace())
+    embedding_client.GeminiEmbeddingClient(key_env="GEMINI_API_KEY")
+    assert options[0].retry_options.attempts == 1
+    assert options[0].timeout == 120_000
 
 
 def test_invalid_key_selector_rejected():

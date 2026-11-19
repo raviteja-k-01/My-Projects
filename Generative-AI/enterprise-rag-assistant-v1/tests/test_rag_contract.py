@@ -4,6 +4,7 @@ from __future__ import annotations
 from src.rag.rag_pipeline import EnterpriseRAGPipeline
 from src.retrieval.context_builder import ContextBuilder
 from src.generation.citation_builder import CitationBuilder
+import pytest
 
 
 class FakeRetriever:
@@ -71,3 +72,20 @@ def test_internal_evaluation_trace_contains_real_evidence_and_disables_fallback(
     assert trace["retrieved_chunk_ids"] == ["POLICY-B001"]
     assert trace["selected_evidence"][0]["text"] == "Incidents must be reported immediately."
     assert trace["selected_evidence"][0]["chunk_id"] == "POLICY-B001"
+
+
+def test_empty_retrieval_abstains_without_generation():
+    pipeline = EnterpriseRAGPipeline.__new__(EnterpriseRAGPipeline)
+    pipeline.retriever = type("EmptyRetriever", (), {
+        "retrieve_with_mode": lambda self, **kwargs: ([], "hybrid")
+    })()
+    pipeline.context_builder = ContextBuilder()
+    pipeline.citation_builder = CitationBuilder()
+    pipeline.generator = type("ForbiddenGenerator", (), {
+        "generate": lambda self, **kwargs: pytest.fail("Empty evidence must not call Gemini")
+    })()
+    result = pipeline.answer("What is the policy?", evaluation_trace=True)
+    assert "insufficient evidence" in result["answer"].lower()
+    assert result["citations"] == []
+    assert result["model"] is None
+    assert result["evaluation_trace"]["selected_evidence"] == []

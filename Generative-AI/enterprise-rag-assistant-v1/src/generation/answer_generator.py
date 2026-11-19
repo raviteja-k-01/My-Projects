@@ -26,10 +26,15 @@ Rules:
 
 4. If the evidence is insufficient, clearly say that
    the available evidence is insufficient.
+   Related terminology alone does not establish the requested fact.
+   Do not infer exact amounts, deadlines, or entity-specific requirements
+   from general policy. Answer supported parts and identify what is missing.
 
 5. If evidence conflicts, explain the conflict.
 
 6. Answer directly and concisely.
+   Include relevant responsibilities, conditions, and exceptions stated in
+   the evidence; check that each part of the question has been addressed.
 
 7. Do not mention retrieval scores, RRF scores,
    reranker scores, embeddings, or internal system details.
@@ -162,6 +167,12 @@ Answer the question using only the evidence above.
                     "Gemini generation failed. No answer was captured."
                 ) from exc
 
+        except errors.ClientError as exc:
+            if getattr(exc, "code", None) == 429:
+                raise RuntimeError(
+                    "Gemini generation API quota is exhausted. No answer was captured."
+                ) from exc
+            raise
         except errors.ServerError as exc:
             code = getattr(exc, "code", None)
             if code == 503:

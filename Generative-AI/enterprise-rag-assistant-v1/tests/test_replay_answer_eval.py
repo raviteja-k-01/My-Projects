@@ -165,3 +165,51 @@ def test_generation_only_capture_refuses_missing_checkpoint(monkeypatch, tmp_pat
     )
     cases = evaluate_answers._read_cases(tmp_path / "cases.jsonl")
     assert cases["Q001"]["run"] is None
+
+
+def test_confirmed_empty_retrieval_captures_abstention_without_model(monkeypatch, tmp_path):
+    from src.generation import answer_generator
+    from scripts.evaluate_hybrid_retrieval_resumable import _build_result
+    from scripts.build_dense_index import EXPECTED_CHUNKS_SHA256
+    row = dict(gold()[0], answerable=False, expected_chunk_ids=[])
+    gold_file = tmp_path / "gold.jsonl"
+    gold_file.write_text(json.dumps(row) + "\n")
+    checkpoint = _build_result(row, [], provenance={
+        "schema_version": 1, "retrieval_mode": "hybrid", "retrieval_performed": True,
+        "corpus_sha256": EXPECTED_CHUNKS_SHA256,
+    })
+    monkeypatch.setattr(replay, "load_replay_inputs", lambda **kwargs: ({"Q001": checkpoint}, {}))
+    monkeypatch.setattr(answer_generator, "GroundedAnswerGenerator",
+                        lambda: pytest.fail("Empty evidence needs no model or credentials"))
+    evaluate_answers.capture_replay(gold_path=gold_file, cases_path=tmp_path / "cases",
+                                    review_dir=tmp_path / "reviews")
+    run = evaluate_answers._read_cases(tmp_path / "cases")["Q001"]["run"]
+    assert "insufficient evidence" in run["answer"]
+    assert run["model"] is None
+    assert run["citations"] == []
+
+
+def test_legacy_skipped_retrieval_is_not_treated_as_abstention_evidence():
+    checkpoint = {"retrieved_chunk_ids": [], "expected_chunk_ids": []}
+    assert replay.is_replayable(checkpoint) is False
+    with pytest.raises(ValueError, match="Legacy skipped"):
+        replay.replay_candidates("Q027", {"Q027": checkpoint}, {})
+
+
+@pytest.mark.parametrize("bad_record, expected", [
+    ({"retrieved_chunk_ids": ["POLICY-B001", "POLICY-B001"]}, "Duplicate retrieved"),
+    ({"retrieved_chunk_ids": ["POLICY-B001"], "provenance": {"corpus_sha256": "0" * 64}}, "SHA-256 mismatch"),
+])
+def test_replay_refuses_duplicate_ranks_and_mismatched_provenance(monkeypatch, tmp_path, bad_record, expected):
+    monkeypatch.setattr(replay, "verify_corpus", lambda path: [FakeChunk()])
+    monkeypatch.setattr(replay, "load_checkpoint", lambda *args: {"Q001": bad_record})
+    with pytest.raises(ValueError, match=expected):
+        replay.load_replay_inputs(gold=gold(), checkpoint_path=tmp_path / "checkpoint",
+                                 chunks_path=tmp_path / "chunks")
+
+
+def test_replay_refuses_duplicate_corpus_ids(monkeypatch, tmp_path):
+    monkeypatch.setattr(replay, "verify_corpus", lambda path: [FakeChunk(), FakeChunk()])
+    with pytest.raises(ValueError, match="Duplicate chunk IDs"):
+        replay.load_replay_inputs(gold=gold(), checkpoint_path=tmp_path / "checkpoint",
+                                 chunks_path=tmp_path / "chunks")
