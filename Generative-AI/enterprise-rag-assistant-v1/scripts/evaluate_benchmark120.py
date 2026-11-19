@@ -201,6 +201,20 @@ def main(argv: list[str] | None = None) -> int:
     init.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     init.add_argument("--audit-dir", type=Path, required=True)
     init.add_argument("--out", type=Path, required=True)
+    capture = sub.add_parser("capture-hybrid", help="Strict hybrid retrieval; defaults to zero live calls")
+    capture.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
+    capture.add_argument("--chunks", type=Path, required=True)
+    capture.add_argument("--checkpoint", type=Path, required=True)
+    capture.add_argument("--split", choices=sorted(ALLOWED_SPLITS), default="dev")
+    capture.add_argument("--max-new", type=int, default=0,
+                         help="Maximum NEW Gemini query embeddings (default 0: read-only preview)")
+    capture.add_argument("--confirm-live", action="store_true",
+                         help="Explicitly authorize live query embeddings for --max-new > 0")
+    capture.add_argument("--unlock-test", action="store_true",
+                         help="Explicitly authorize running the held-out test split")
+    capture.add_argument("--dense-limit", type=int, default=20)
+    capture.add_argument("--sparse-limit", type=int, default=20)
+    capture.add_argument("--fused-limit", type=int, default=20)
     score = sub.add_parser("score-retrieval", help="Score only verified relevance labels; never create them")
     score.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     score.add_argument("--labels", type=Path, required=True)
@@ -217,13 +231,21 @@ def main(argv: list[str] | None = None) -> int:
             result = audit(args.dataset, args.chunks, args.out)
         elif args.command == "init-labels":
             result = initialize_relevance_labels(args.dataset, args.audit_dir, args.out)
+        elif args.command == "capture-hybrid":
+            from src.evaluation.benchmark120_hybrid_capture import capture_hybrid
+            result = capture_hybrid(
+                dataset_path=args.dataset, corpus_path=args.chunks, checkpoint_path=args.checkpoint,
+                questions=load_dataset(args.dataset), split=args.split, max_new=args.max_new,
+                confirm_live=args.confirm_live, allow_test=args.unlock_test,
+                dense_limit=args.dense_limit, sparse_limit=args.sparse_limit, fused_limit=args.fused_limit,
+            )
         else:
             result = score_retrieval(args.dataset, args.labels, args.checkpoint, args.split, sorted(set(args.k or [5, 10])))
             if args.out:
                 with args.out.open("x", encoding="utf-8") as output:
                     json.dump(result, output, indent=2)
                     output.write("\n")
-    except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+    except (ValueError, OSError, KeyError, TypeError, RuntimeError, json.JSONDecodeError) as exc:
         parser.exit(2, f"ERROR: {exc}\n")
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0

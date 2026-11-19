@@ -55,3 +55,37 @@ Do not create synthetic checkpoints merely to obtain a score. The scorer does no
 No hardcoded question-to-answer maps. No assignment of relevance from substring matches. No automatic edits to the user's source documents, gold facts, or review sign-offs. Outputs refuse overwrite. Source hashes are retained to detect stale audits/labels. The tool is standard-library-only; tests run under the project's offline pytest suite.
 
 This integration is **an offline benchmark audit + review-label gate + future retrieval scorer**, not a claim that RAG-120 has been semantically validated or evaluated end-to-end.
+
+## Strict-hybrid RAG-120 capture (budgeted and resumable)
+
+The benchmark now supports an *optional* live strict-hybrid retrieval run on
+the 80 development questions. It uses the existing `HybridRetriever.retrieve`
+method (Gemini query embedding + Qdrant dense + BM25 sparse + RRF). **No
+BM25 fallback** is permitted. The separate 40-question `test` split stays
+locked until you explicitly opt in.
+
+```bash
+# Safe preview: no provider initialization, no network requests, no writes
+python -m scripts.evaluate_benchmark120 capture-hybrid \
+  --chunks /path/to/processed/chunks.jsonl \
+  --checkpoint data/processed/benchmark120_hybrid_dev.jsonl
+
+# When API quota is available AND you authorize ONE new query embedding:
+python -m scripts.evaluate_benchmark120 capture-hybrid \
+  --chunks /path/to/processed/chunks.jsonl \
+  --checkpoint data/processed/benchmark120_hybrid_dev.jsonl \
+  --max-new 1 --confirm-live
+
+# Score checkpoint *only* against independently reviewed labels:
+python -m scripts.evaluate_benchmark120 score-retrieval \
+  --labels /path/to/reviewed_labels.jsonl \
+  --checkpoint data/processed/benchmark120_hybrid_dev.jsonl \
+  --split dev --k 5 --k 10
+```
+
+A checkpoint row is saved atomically after each successful query. On resume,
+question text, dataset SHA, corpus SHA, retrieval configuration, chunk IDs
+and split must all match; stale or incompatible data is rejected. Running
+with no `--max-new` performs only a read-only preview. Retrieving questions
+does **not** certify the labels, validate expected facts or generate answers.
+Quota limits and provider availability remain external constraints.
