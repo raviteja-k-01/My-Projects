@@ -1,0 +1,25 @@
+# Never send local secrets, Git metadata, backups, evaluation artifacts or BM25
+# payloads as image-build context. BM25 artifacts are provided as a read-only
+# runtime bind mount; source code is the only corpus-independent image input.
+.git
+.gitignore
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.venv/
+venv/
+data/
+*.zip
+*.patch
+*.jsonl
+*.pdf
+*.csv
+*.sqlite
+*.db
+**/.streamlit/secrets.toml

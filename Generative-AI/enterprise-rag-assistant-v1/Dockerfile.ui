@@ -1,0 +1,17 @@
+# Browser-facing UI has no Gemini or Qdrant credentials.
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    HOME=/tmp
+WORKDIR /app
+RUN python -m pip install --no-cache-dir \
+      streamlit==1.67.0 requests==2.34.2 python-dotenv==1.2.4 \
+    && groupadd --gid 10001 rag \
+    && useradd --uid 10001 --gid 10001 --create-home rag
+COPY --chown=rag:rag src/ui/app.py /app/src/ui/app.py
+USER rag
+EXPOSE 8501
+CMD ["python", "-m", "streamlit", "run", "src/ui/app.py", \
+     "--server.address=0.0.0.0", "--server.port=8501", \
+     "--server.headless=true", "--browser.gatherUsageStats=false"]

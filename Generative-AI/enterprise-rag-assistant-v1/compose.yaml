@@ -1,0 +1,44 @@
+# Local-only deployment smoke test. NOT a production/public deployment.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file:
+      - .env
+    environment:
+      RAG_RATE_LIMIT_PER_MINUTE: ${RAG_RATE_LIMIT_PER_MINUTE:-12}
+    volumes:
+      - type: bind
+        source: ./data/bm25
+        target: /app/data/bm25
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    environment:
+      RAG_API_URL: http://api:8000
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8501:8501"
+    restart: unless-stopped
