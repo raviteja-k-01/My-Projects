@@ -161,6 +161,13 @@ def score_retrieval(
         if retrieved is None:
             skipped["missing_retrieval_checkpoint"] += 1
             continue
+        if (retrieved.get("source_dataset_sha256", digest) != digest
+            or retrieved.get("split", split) != split):
+            raise ValueError(f"{qid}: stale or cross-split retrieval checkpoint")
+        if "question_sha256" in retrieved:
+            from src.evaluation.benchmark120_hybrid_capture import _question_digest
+            if retrieved["question_sha256"] != _question_digest(row["question"]):
+                raise ValueError(f"{qid}: retrieval question digest mismatch")
         ranked = retrieved.get("retrieved_chunk_ids")
         if not isinstance(ranked, list) or any(not isinstance(cid, str) or not cid.strip() for cid in ranked):
             raise ValueError(f"{qid}: malformed retrieved_chunk_ids")

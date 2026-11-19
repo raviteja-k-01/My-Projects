@@ -7,6 +7,7 @@ relevance and clarity requires a reviewer reading the actual evidence.
 from __future__ import annotations
 
 from collections import Counter
+import re
 from typing import Any
 
 from src.generation.citation_builder import (
@@ -94,7 +95,8 @@ def audit_citation_mechanics(answer: str, citations: list[dict[str, Any]],
 
     if cited_ids != set(citation_map):
         mismatches.append("citation_ids_do_not_match_text")
-    if all_mentions != cited_ids:
+    outside = EVIDENCE_GROUP_PATTERN.sub("", answer)
+    if EVIDENCE_ID_PATTERN.search(outside) or re.search(r"\[[^\]\n]*\bevidence\b", outside, re.IGNORECASE):
         mismatches.append("malformed_or_unbracketed_evidence_reference")
     return {
         "has_citations": bool(cited_ids),

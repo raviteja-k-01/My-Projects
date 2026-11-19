@@ -30,21 +30,31 @@ def main(argv: list[str] | None = None) -> None:
     common(capture)
     capture.add_argument("--max-new", type=int, default=0)
     capture.add_argument("--confirm-generation", action="store_true")
+    capture.add_argument("--request-budget", type=int,
+                         help="Total provider attempts, including retries (default: max-new)")
     capture.add_argument("--model", help="Optional generation model override; do not mix models in one answer checkpoint")
     inspect = sub.add_parser("report", help="Summarize saved answers, optionally export blank human reviews")
     common(inspect)
     inspect.add_argument("--review-export", type=Path)
+    inspect.add_argument("--reviews",type=Path,help="Completed human review JSONL; never automatically graded")
     args = parser.parse_args(argv)
     kwargs = dict(dataset_path=args.dataset, corpus_path=args.chunks,
                   retrieval_path=args.retrieval_checkpoint, answers_path=args.answers,
                   split=args.split, unlock_test=args.unlock_test)
-    if args.command == "preview":
-        result = run(**kwargs)
-    elif args.command == "capture":
-        result = run(**kwargs, max_new=args.max_new, confirm_generation=args.confirm_generation,
-                     model_name=args.model)
-    else:
-        result = report(**kwargs, review_export=args.review_export)
+    try:
+        if args.command == "preview":
+            result = run(**kwargs)
+        elif args.command == "capture":
+            result = run(**kwargs, max_new=args.max_new, confirm_generation=args.confirm_generation,
+                         model_name=args.model, request_budget=args.request_budget)
+        else:
+            result = report(**kwargs, review_export=args.review_export, reviews_path=args.reviews)
+    except Exception as exc:
+        # Chained SDK exceptions can contain request URLs/credentials. Never
+        # print their traceback or raw contents in this operator-facing command.
+        category = getattr(exc, "category", "validation_or_capture_error")
+        parser.exit(2, f"ERROR: evaluation stopped ({category}); existing checkpoints preserved. "
+                       "Check source/configuration compatibility and the attempt ledger.\n")
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

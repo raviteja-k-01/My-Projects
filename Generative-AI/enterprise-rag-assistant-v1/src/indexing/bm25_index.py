@@ -217,9 +217,12 @@ class BM25Index:
             return_as="tuple",
         )
 
+        count = len(self.retriever.corpus)
+        if count == 0:
+            return []
         results, scores = self.retriever.retrieve(
             query_tokens,
-            k=limit,
+            k=min(limit, count),
         )
 
         ranked_results: list[dict[str, Any]] = []
@@ -231,6 +234,8 @@ class BM25Index:
             score = float(
                 scores[0, rank]
             )
+            if score <= 0:
+                continue
 
             ranked_results.append(
                 {

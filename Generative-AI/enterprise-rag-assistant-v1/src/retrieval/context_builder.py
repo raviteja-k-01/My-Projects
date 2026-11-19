@@ -1,14 +1,8 @@
-import re
 from typing import Any
 
 
 DEFAULT_MAX_CHUNKS = 8
 DEFAULT_MAX_CONTEXT_TOKENS = 4000
-DEFAULT_DUPLICATE_THRESHOLD = 0.78
-
-TOKEN_PATTERN = re.compile(
-    r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*"
-)
 
 
 class ContextBuilder:
@@ -21,7 +15,6 @@ class ContextBuilder:
         self,
         max_chunks: int = DEFAULT_MAX_CHUNKS,
         max_context_tokens: int = DEFAULT_MAX_CONTEXT_TOKENS,
-        duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
     ) -> None:
         if max_chunks <= 0:
             raise ValueError(
@@ -33,52 +26,12 @@ class ContextBuilder:
                 "max_context_tokens must be greater than zero"
             )
 
-        if not 0.0 <= duplicate_threshold <= 1.0:
-            raise ValueError(
-                "duplicate_threshold must be between 0 and 1"
-            )
-
         self.max_chunks = max_chunks
         self.max_context_tokens = max_context_tokens
-        self.duplicate_threshold = duplicate_threshold
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:
         return max(1, len(text) // 4)
-
-    @staticmethod
-    def _token_set(text: str) -> set[str]:
-        """
-        Convert text into a normalized set of words
-        for duplicate comparison.
-        """
-
-        return {
-            token.lower()
-            for token in TOKEN_PATTERN.findall(text)
-        }
-
-    @classmethod
-    def _text_similarity(
-        cls,
-        text_a: str,
-        text_b: str,
-    ) -> float:
-        """
-        Calculate Jaccard similarity between the
-        unique normalized words of two chunks.
-        """
-
-        tokens_a = cls._token_set(text_a)
-        tokens_b = cls._token_set(text_b)
-
-        if not tokens_a or not tokens_b:
-            return 0.0
-
-        intersection = tokens_a & tokens_b
-        union = tokens_a | tokens_b
-
-        return len(intersection) / len(union)
 
     def _is_near_duplicate(
         self,
@@ -86,17 +39,14 @@ class ContextBuilder:
         selected_texts: list[str],
     ) -> bool:
         """
-        Check whether this chunk is too similar to
-        any evidence chunk already selected.
+        Check for identical wording after whitespace normalization.
         """
 
+        # Lexical similarity is not semantic equivalence: one changed number,
+        # actor or negation can reverse a policy. Only collapse identical wording.
+        normalized = " ".join(text.split())
         for selected_text in selected_texts:
-            similarity = self._text_similarity(
-                text,
-                selected_text,
-            )
-
-            if similarity >= self.duplicate_threshold:
+            if normalized == " ".join(selected_text.split()):
                 return True
 
         return False
@@ -197,8 +147,7 @@ class ContextBuilder:
             if not text:
                 continue
 
-            # Skip chunks whose text is highly similar
-            # to evidence already selected.
+            # Skip only identical wording, preserving meaningful differences.
             if self._is_near_duplicate(
                 text=text,
                 selected_texts=selected_texts,
@@ -209,7 +158,7 @@ class ContextBuilder:
                 "token_count"
             )
 
-            if not isinstance(token_count, int):
+            if type(token_count) is not int or token_count <= 0:
                 token_count = (
                     self._estimate_tokens(text)
                 )

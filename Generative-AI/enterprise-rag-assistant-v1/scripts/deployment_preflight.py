@@ -16,7 +16,7 @@ from typing import Any, Callable, Mapping
 from dotenv import load_dotenv
 
 ALLOWED_EMBEDDING_KEYS = frozenset({"GEMINI_API_KEY", "GEMINI_API_KEY_1"})
-REQUIRED_NAMES = ("GEMINI_API_KEY", "QDRANT_URL", "QDRANT_API_KEY")
+REQUIRED_NAMES = ("QDRANT_URL", "QDRANT_API_KEY")
 
 
 class PreflightError(ValueError):
@@ -25,7 +25,11 @@ class PreflightError(ValueError):
 
 def validate_config(environ: Mapping[str, str]) -> None:
     """Validate required ENV names without exposing secret contents."""
-    missing = [key for key in REQUIRED_NAMES if not environ.get(key, "").strip()]
+    required = REQUIRED_NAMES
+    if "GEMINI_API_KEY" in (environ.get("GEMINI_EMBEDDING_KEY_ENV", "GEMINI_API_KEY").strip(),
+                            environ.get("GEMINI_GENERATION_KEY_ENV", "GEMINI_API_KEY").strip()):
+        required += ("GEMINI_API_KEY",)
+    missing = [key for key in required if not environ.get(key, "").strip()]
     if missing:
         raise PreflightError("Missing required environment variables: " + ", ".join(missing))
     selected = environ.get("GEMINI_EMBEDDING_KEY_ENV", "GEMINI_API_KEY").strip()
@@ -33,6 +37,11 @@ def validate_config(environ: Mapping[str, str]) -> None:
         raise PreflightError("GEMINI_EMBEDDING_KEY_ENV must name an allowed key variable")
     if not environ.get(selected, "").strip():
         raise PreflightError(f"Selected embedding environment variable is empty: {selected}")
+    generation_key = environ.get("GEMINI_GENERATION_KEY_ENV", "GEMINI_API_KEY").strip()
+    if generation_key not in ALLOWED_EMBEDDING_KEYS:
+        raise PreflightError("GEMINI_GENERATION_KEY_ENV must name an allowed key variable")
+    if not environ.get(generation_key, "").strip():
+        raise PreflightError(f"Selected generation environment variable is empty: {generation_key}")
     if not environ["QDRANT_URL"].strip().startswith(("http://", "https://")):
         raise PreflightError("QDRANT_URL must be an HTTP(S) URL")
 

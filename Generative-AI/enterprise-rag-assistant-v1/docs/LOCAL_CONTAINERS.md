@@ -77,6 +77,8 @@ read-only and is not deleted by `docker compose down`.
 - Keep `.env`, BM25 assets, all JSONL datasets/checkpoints, and source PDFs
   out of the Docker build context and images (see `.dockerignore`).
 - Preflight is not full readiness: generation 503/504 can still occur.
-- The image has not been built or run by the creator of this bundle because a
-  Docker daemon is not available in the authoring environment. Treat the
-  container smoke test above as a required release gate, not an achieved one.
+- The images were rebuilt locally on 2026-11-19 during the
+  [reliability review](RELIABILITY_REVIEW_20261119.md). Offline container tests
+  replace provider boundaries and do not establish live Gemini availability.
+  The pre-existing API/UI containers were already running; check the review
+  for which source revision was tested. A live question remains a separate gate.

@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 from google.genai import errors as genai_errors
 from src.rag.rag_pipeline import EnterpriseRAGPipeline
 from src.api.rate_limit import SlidingWindowRateLimiter
+from src.generation.reliability import GenerationError
 
 
 # --------------------------------------------------
@@ -117,14 +118,21 @@ def ask(request: AskRequest, _rate_limit: None = Depends(enforce_rate_limit)):
             status_code=502,
             detail="Embedding service request failed.",
         ) from exc
+    except GenerationError as exc:
+        raise HTTPException(
+            status_code=502 if exc.category in {"invalid_response", "request", "authentication"} else 503,
+            detail=str(exc),
+        ) from exc
     except RuntimeError as exc:
         raise HTTPException(
             status_code=503,
-            detail=str(exc),
+            detail="RAG service is temporarily unavailable. Please retry later.",
         ) from exc
 
     except ValueError as exc:
         raise HTTPException(
-            status_code=400,
-            detail=str(exc),
+            status_code=502,
+            detail="The RAG service could not produce a valid grounded answer.",
         ) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="RAG upstream service failed.") from exc

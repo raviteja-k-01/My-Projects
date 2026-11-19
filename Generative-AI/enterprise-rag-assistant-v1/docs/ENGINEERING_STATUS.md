@@ -2,6 +2,12 @@
 
 This is an evidence record, not a claim of release readiness.
 
+**Current continuation:** [2026-11-19 reliability review](RELIABILITY_REVIEW_20261119.md).
+The RAG-120 artifacts now contain 80 development retrievals and two answers.
+The separate reliability experiment contains one verified E001 smoke answer:
+one recorded provider attempt, approximately 22.9 seconds, no retries.
+The older 30-question results and infrastructure notes below are historical.
+
 Latest continuation: [offline engineering review](OFFLINE_REVIEW.md), covering
 semantic-abstention limits, application tests, diff review and legacy retirement.
 The original phase results below remain a historical record.

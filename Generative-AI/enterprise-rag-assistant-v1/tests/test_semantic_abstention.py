@@ -36,7 +36,7 @@ def test_nonempty_insufficient_evidence_contract_and_known_gap(case, source, fab
         assert variables["question"] == case["question"]
         assert chunk["text"] in variables["context"]
         calls.append(variables)
-        return SimpleNamespace(text=answer, usage_metadata={})
+        return SimpleNamespace(text=answer, usage_metadata={}, response_metadata={"finish_reason": "STOP"})
 
     generator.chain = SimpleNamespace(invoke=invoke)
     pipeline = EnterpriseRAGPipeline.__new__(EnterpriseRAGPipeline)

@@ -13,7 +13,6 @@ from src.generation.citation_builder import CitationBuilder
 from src.retrieval.context_builder import ContextBuilder
 
 
-DEFAULT_CONTEXT_CANDIDATES = 8
 INSUFFICIENT_EVIDENCE_ANSWER = (
     "There is insufficient evidence in the available policy documents to answer this question."
 )
@@ -49,7 +48,9 @@ def compose_answer(
         raise ValueError("Saved hybrid checkpoint may not be relabeled as BM25")
 
     begin = time.perf_counter() if total_start is None else total_start
-    context_result = context_builder.build(candidates=candidates[:DEFAULT_CONTEXT_CANDIDATES])
+    # The builder enforces the eight-evidence cap. Let it refill skipped duplicate
+    # or oversized chunks from the rest of the retrieved ranking.
+    context_result = context_builder.build(candidates=candidates)
     if context_result["context"]:
         generation_start = time.perf_counter()
         generated = generator.generate(question=question, context=context_result["context"])

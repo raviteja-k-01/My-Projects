@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import Counter
 import json
+import uuid
 from pathlib import Path
 from typing import Any, Callable
 
@@ -16,6 +17,8 @@ from src.evaluation.benchmark120_evidence import read_jsonl, sha256
 from src.evaluation.benchmark120_hybrid_capture import (
     _chunk_ids, _question_digest, _save_atomic, _verified_checkpoint,
 )
+from src.evaluation.experiment import append_event, configuration, exclusive_capture, fingerprint, restore_request_budget
+from src.evaluation.benchmark120_review import review_template, summarize_reviews, summarize_attempts
 
 
 def load_inputs(*, dataset_path: Path, corpus_path: Path,
@@ -77,29 +80,52 @@ def _load_answers(path: Path, *, questions: list[dict[str, Any]], chunks: dict[s
             or row.get("retrieval_source") != "saved_hybrid_checkpoint"
             or row.get("retrieval_mode") != "hybrid"
             or not isinstance(row.get("answer"), str) or not row["answer"].strip()
-            or not isinstance(row.get("model"), str) or not row["model"].strip()
+            or (row.get("model") is not None and
+                (not isinstance(row["model"], str) or not row["model"].strip()))
             or not isinstance(row.get("selected_evidence"), list)
             or not isinstance(row.get("citations"), list)):
             raise ValueError(f"Stale or invalid saved answer: {qid}")
         selected_ids = [e.get("chunk_id") for e in row["selected_evidence"]]
         retrieved_ids = retrieval[qid]["retrieved_chunk_ids"]
         if (len(set(selected_ids)) != len(selected_ids)
-            or any(cid not in retrieved_ids[:8] for cid in selected_ids)
-            or any(e.get("evidence_id") != index for index, e in enumerate(row["selected_evidence"], 1))):
+            or any(cid not in retrieved_ids for cid in selected_ids)
+            or len(selected_ids) > 8
+            or any(type(e.get("evidence_id")) is not int or e["evidence_id"] != index
+                   for index, e in enumerate(row["selected_evidence"], 1))):
             raise ValueError(f"Answer evidence does not match retrieval context: {qid}")
         if (row.get("evidence_count") != len(selected_ids)
             or row.get("citation_count") != len(row["citations"])
             or any(e.get("text") != str(chunks[e["chunk_id"]].get("text", "")).strip()
-                   or e.get("document_id") != chunks[e["chunk_id"]].get("document_id")
+                   or any(e.get(key) != chunks[e["chunk_id"]].get(key) for key in
+                          ("document_id", "document_name", "page_start", "page_end", "section_number",
+                           "section_title", "subsection_number", "subsection_title", "content_type"))
                    for e in row["selected_evidence"])):
             raise ValueError(f"Answer evidence text/metadata differs from locked corpus: {qid}")
         citation_ids = [c.get("evidence_id") for c in row["citations"]]
         if (len(set(citation_ids)) != len(citation_ids)
-            or any(id not in range(1, len(selected_ids) + 1) for id in citation_ids)
+            or any(type(id) is not int or id not in range(1, len(selected_ids) + 1) for id in citation_ids)
             or any(c.get("chunk_id") != selected_ids[c["evidence_id"] - 1]
                    for c in row["citations"])):
             raise ValueError(f"Invalid citation evidence references: {qid}")
+        for citation in row["citations"]:
+            evidence = row["selected_evidence"][citation["evidence_id"] - 1]
+            if any(citation.get(key) != evidence.get(key) for key in
+                   ("document_id", "document_name", "page_start", "page_end", "section_number",
+                    "section_title", "subsection_number", "subsection_title")):
+                raise ValueError(f"Citation source metadata differs from locked corpus: {qid}")
+        if row.get("model") is None:
+            from src.rag.answer_composer import INSUFFICIENT_EVIDENCE_ANSWER
+            if row["selected_evidence"] or row["citations"] or row["answer"] != INSUFFICIENT_EVIDENCE_ANSWER:
+                raise ValueError(f"Invalid deterministic abstention: {qid}")
+        from src.evaluation.answer_quality import audit_citation_mechanics
+        checks = audit_citation_mechanics(row["answer"], row["citations"], row["selected_evidence"])
+        if not checks["mechanically_valid"]:
+            raise ValueError(f"Invalid citation syntax or mapping: {qid}")
+        if "experiment" in row and row.get("experiment_sha256") != fingerprint(row["experiment"]):
+            raise ValueError(f"Invalid experiment fingerprint: {qid}")
         saved[qid] = row
+    if len({r.get("experiment_sha256") for r in saved.values()}) > 1:
+        raise ValueError("Mixed experiment configurations in answer checkpoint")
     return saved
 
 
@@ -108,9 +134,11 @@ def _candidates(retrieval_row: dict[str, Any], chunks: dict[str, Any]) -> list[d
             for rank, cid in enumerate(retrieval_row["retrieved_chunk_ids"], start=1)]
 
 
+@exclusive_capture
 def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
         answers_path: Path, split: str = "dev", unlock_test: bool = False,
         max_new: int = 0, confirm_generation: bool = False, model_name: str | None = None,
+        request_budget: int | None = None,
         generator_factory: Callable[..., Any] | None = None,
         context_builder_factory: Callable[[], Any] | None = None,
         citation_builder_factory: Callable[[], Any] | None = None,
@@ -120,9 +148,15 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
         raise ValueError("max_new must be a nonnegative integer")
     if max_new and not confirm_generation:
         raise ValueError("Generation requires --confirm-generation")
+    # Restore request usage from the ledger under the exclusive checkpoint lock
+    # after verifying the experiment. A fresh counter here would reset spending.
+    if request_budget is not None and (type(request_budget) is not int or request_budget < 0):
+        raise ValueError("Request budget must be a nonnegative integer")
+    if max_new and request_budget == 0:
+        raise ValueError("Live generation requires a positive request budget")
     if model_name is not None and (not isinstance(model_name, str) or not model_name.strip()):
         raise ValueError("model name must be nonempty")
-    if answers_path.resolve() == retrieval_path.resolve():
+    if answers_path.resolve() in {p.resolve() for p in (dataset_path, corpus_path, retrieval_path)}:
         raise ValueError("Answer output and retrieval checkpoint must be separate")
     qs, chunks, retrieval, digests = load_inputs(
         dataset_path=dataset_path, corpus_path=corpus_path,
@@ -137,7 +171,8 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
         "new_embedding_calls": 0, "new_qdrant_queries": 0,
         "dataset_sha256": digests["dataset"], "corpus_sha256": digests["corpus"],
         "retrieval_checkpoint_sha256": digests["retrieval"],
-        "model_names_captured": dict(sorted(Counter(r["model"] for r in saved.values()).items())),
+        "model_names_captured": dict(sorted(Counter(r["model"] or "deterministic_abstention" for r in saved.values()).items())),
+        "provider_request_budget": request_budget if request_budget is not None else max_new,
         "answer_checkpoint": str(answers_path),
     }
     if not max_new or not pending:
@@ -159,12 +194,34 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
 
     generator = generator_factory(model_name=model_name)
     chosen_model = generator.model_name
-    if any(r["model"] != chosen_model for r in saved.values()):
+    if any(r["model"] is not None and r["model"] != chosen_model for r in saved.values()):
         raise ValueError("Different generation model in existing answer checkpoint; use a separate output file")
     context_builder = context_builder_factory()
     citations = citation_builder_factory()
+    experiment = configuration(generator, context_builder)
+    experiment_id = fingerprint(experiment)
+    if any(r.get("experiment_sha256") != experiment_id for r in saved.values()):
+        raise ValueError("Different or legacy generation configuration; preserve this checkpoint and use a separate output file")
+    ledger_path = answers_path.with_suffix(answers_path.suffix + ".attempts.jsonl")
+    budget, requests_before_run, budget_scope = restore_request_budget(
+        ledger_path, experiment_sha256=experiment_id,
+        requested_limit=request_budget, default_batch_limit=max_new,
+        saved_provider_answers=sum(row["model"] is not None for row in saved.values()),
+    )
+    generator.request_budget = budget
+    report["provider_request_budget"] = budget.limit if budget_scope == "persistent" else max_new
+    report["provider_request_budget_scope"] = budget_scope
+    report["provider_requests_cumulative"] = requests_before_run
+    report["provider_requests_remaining"] = budget.remaining
+    run_id = uuid.uuid4().hex
     for q in pending[:max_new]:
+        if not budget.remaining:
+            break
         qid = q["question_id"]
+        def observe(event):
+            append_event(ledger_path, {"run_id": run_id, "question_id": qid,
+                "experiment_sha256": experiment_id, "model": chosen_model, **event})
+        generator.observer = observe
         candidate_rows = _candidates(retrieval[qid], chunks)
         try:
             result = compose_fn(
@@ -175,9 +232,11 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
                 evaluation_trace=True,
             )
         except Exception as exc:
+            category = getattr(exc, "category", "assembly_error")
+            observe({"event": "answer_failed", "category": category})
             # Never modify a successful earlier checkpoint when generation fails.
             raise RuntimeError(
-                f"Generation stopped for {qid} ({type(exc).__name__}); previous answers preserved; "
+                f"Generation stopped for {qid} ({category}); previous answers preserved; "
                 "no new query embeddings requested"
             ) from exc
         trace = result.get("evaluation_trace") or {}
@@ -195,22 +254,27 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
             "evidence_count": result["evidence_count"],
             "evidence_tokens": result["evidence_tokens"],
             "usage": result["usage"], "latency": result["latency"],
+            "experiment": experiment, "experiment_sha256": experiment_id,
         }
-        if row["model"] != chosen_model:
+        if row["model"] is not None and row["model"] != chosen_model:
             raise ValueError("Generator response model name differs from configured model")
         saved[qid] = row
         _save_atomic(answers_path, (saved[record["question_id"]]
                                     for record in qs if record["question_id"] in saved))
+        observe({"event": "answer_saved"})
         report["newly_saved"] += 1
     report["answer_checkpointed"] = len(saved)
-    report["answer_pending"] = len(qs) - len(saved)
-    report["model_names_captured"] = dict(sorted(Counter(r["model"] for r in saved.values()).items()))
+    report["answer_pending"] = sum(q["question_id"] in retrieval and q["question_id"] not in saved for q in qs)
+    report["provider_requests_used"] = budget.used - requests_before_run
+    report["provider_requests_cumulative"] = budget.used
+    report["provider_requests_remaining"] = budget.remaining
+    report["model_names_captured"] = dict(sorted(Counter(r["model"] or "deterministic_abstention" for r in saved.values()).items()))
     return report
 
 
 def report(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
            answers_path: Path, split: str = "dev", unlock_test: bool = False,
-           review_export: Path | None = None) -> dict[str, Any]:
+           review_export: Path | None = None, reviews_path: Path | None = None) -> dict[str, Any]:
     qs, chunks, retrieval, digests = load_inputs(
         dataset_path=dataset_path, corpus_path=corpus_path, retrieval_path=retrieval_path,
         split=split, unlock_test=unlock_test)
@@ -233,14 +297,19 @@ def report(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
                     "factual_completeness": "unreviewed", "groundedness": "unreviewed",
                     "citation_correctness": "unreviewed", "abstention_correctness": "unreviewed",
                     "review_notes": "",
+                    "review": review_template(q, row),
                 }, ensure_ascii=False) + "\n")
+    reviews = summarize_reviews(qs, saved, read_jsonl(reviews_path) if reviews_path else [])
+    ledger_path = answers_path.with_suffix(answers_path.suffix + ".attempts.jsonl")
     return {
         "split": split, "questions": len(qs), "retrieval_checkpointed": len(retrieval),
         "answer_checkpointed": len(saved),
         "answers_with_no_citation_metadata": sum(not row["citations"] for row in saved.values()),
         "answerable_captured": sum(q["answerable"] and q["question_id"] in saved for q in qs),
         "unanswerable_captured": sum(not q["answerable"] and q["question_id"] in saved for q in qs),
-        "human_factual_reviews_completed": 0,
+        "human_factual_reviews_completed": reviews["human_reviews_completed"],
+        "quality": reviews,
+        "operations": summarize_attempts(read_jsonl(ledger_path)) if ledger_path.exists() else None,
         "warning": "Citation syntax and presence do not establish groundedness, correctness, or abstention quality.",
         "review_export": str(review_export) if review_export is not None else None,
     }

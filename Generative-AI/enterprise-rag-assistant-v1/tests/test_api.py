@@ -122,7 +122,7 @@ def test_ask_converts_runtime_error_to_503():
             assert exc.status_code == 503
             assert (
                 exc.detail
-                == "Gemini API quota is exhausted."
+                == "RAG service is temporarily unavailable. Please retry later."
             )
 
     finally:

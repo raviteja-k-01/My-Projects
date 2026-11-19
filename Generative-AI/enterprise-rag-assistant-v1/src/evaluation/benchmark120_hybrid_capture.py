@@ -100,6 +100,8 @@ def capture_hybrid(
     """
     if split not in ("dev", "test"):
         raise ValueError("split must be 'dev' or 'test'")
+    if checkpoint_path.resolve() in {dataset_path.resolve(), corpus_path.resolve()}:
+        raise ValueError("Retrieval checkpoint and source inputs must be separate")
     if type(max_new) is not int or max_new < 0:
         raise ValueError("max_new must be a nonnegative integer")
     limits = {"dense_limit": dense_limit, "sparse_limit": sparse_limit, "fused_limit": fused_limit}

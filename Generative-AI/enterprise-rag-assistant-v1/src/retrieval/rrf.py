@@ -32,9 +32,12 @@ def reciprocal_rank_fusion(
         results: list[dict[str, Any]],
         source: str,
     ) -> None:
-
+        seen: set[str] = set()
         for result in results:
             chunk_id = result["chunk_id"]
+            if chunk_id in seen:
+                raise ValueError("Duplicate chunk ID within one RRF source ranking")
+            seen.add(chunk_id)
             rank = result["rank"]
 
             if rank <= 0:

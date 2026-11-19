@@ -68,7 +68,8 @@ class CitationBuilder:
             raise ValueError("Duplicate evidence IDs")
         # Do not silently discard references outside supported citation groups.
         outside_groups = EVIDENCE_GROUP_PATTERN.sub("", answer)
-        if EVIDENCE_ID_PATTERN.search(outside_groups):
+        if (EVIDENCE_ID_PATTERN.search(outside_groups)
+            or re.search(r"\[[^\]\n]*\bevidence\b", outside_groups, re.IGNORECASE)):
             raise ValueError("Malformed or unbracketed evidence reference")
 
         citation_ids: list[int] = []

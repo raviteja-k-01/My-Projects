@@ -33,6 +33,18 @@ def test_allowed_second_embedding_key() -> None:
     validate_config({**VALID_ENV, "GEMINI_EMBEDDING_KEY_ENV": "GEMINI_API_KEY_1", "GEMINI_API_KEY_1": "local-test-only"})
 
 
+def test_both_services_can_explicitly_select_secondary_without_primary():
+    values = {k:v for k,v in VALID_ENV.items() if k != "GEMINI_API_KEY"}
+    validate_config({**values,"GEMINI_API_KEY_1":"secondary-test-only",
+                     "GEMINI_EMBEDDING_KEY_ENV":"GEMINI_API_KEY_1",
+                     "GEMINI_GENERATION_KEY_ENV":"GEMINI_API_KEY_1"})
+
+
+def test_selected_generation_key_must_exist():
+    with pytest.raises(PreflightError,match="Selected generation"):
+        validate_config({**VALID_ENV,"GEMINI_GENERATION_KEY_ENV":"GEMINI_API_KEY_1"})
+
+
 def test_invalid_key_selector_rejected() -> None:
     with pytest.raises(PreflightError, match="allowed"):
         validate_config({**VALID_ENV, "GEMINI_EMBEDDING_KEY_ENV": "OTHER_KEY"})

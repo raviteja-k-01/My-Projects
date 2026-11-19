@@ -40,7 +40,7 @@ if submitted:
             response = requests.post(
                 f"{API_BASE_URL}/ask",
                 json={"question": clean_question},
-                timeout=(10, 120),
+                timeout=(10, 800),
             )
         except requests.RequestException:
             st.error("The RAG backend is unreachable. Try again later.")
