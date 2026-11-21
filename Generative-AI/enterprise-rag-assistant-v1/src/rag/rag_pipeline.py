@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import os
 import time
+
+from dotenv import load_dotenv
 from typing import Any
 
 from src.generation.answer_generator import GroundedAnswerGenerator, SYSTEM_PROMPT
@@ -19,7 +21,7 @@ DEFAULT_FUSED_LIMIT = 20
 
 
 class EnterpriseRAGPipeline:
-    """Live RAG: hybrid retrieval, selected evidence, Gemini, citations.
+    """Live RAG: hybrid retrieval, selected evidence, selected LLM, citations.
 
     Replays of verified historical hybrid retrieval use the *same*
     compose_answer function without generating a new query embedding.
@@ -28,18 +30,27 @@ class EnterpriseRAGPipeline:
     def __init__(self) -> None:
         self.retriever = HybridRetriever()
         self.context_builder = ContextBuilder(max_chunks=8, max_context_tokens=4000)
-        # GroundedAnswerGenerator loads local .env before the fallback flag is read.
-        # Optional LIVE-only failover; benchmark replay keeps Gemini explicitly.
-        primary = GroundedAnswerGenerator()
-        flag = os.getenv("GROQ_FALLBACK_ENABLED", "false").strip().lower()
-        if flag not in {"", "0", "false", "no", "1", "true", "yes"}:
-            raise ValueError("GROQ_FALLBACK_ENABLED must be true or false")
-        self.generator = primary
-        if flag in {"1", "true", "yes"}:
-            self.generator = FailoverAnswerGenerator(
-                primary=primary,
-                fallback=GroqAnswerGenerator(system_prompt=SYSTEM_PROMPT),
-            )
+        # Live API generation is configurable. Replays keep their explicit
+        # experiment generator; the indexed Gemini embeddings are unchanged.
+        load_dotenv()
+        provider = os.getenv("RAG_GENERATION_PROVIDER", "gemini").strip().lower()
+        if provider not in {"gemini", "groq"}:
+            raise ValueError("RAG_GENERATION_PROVIDER must be gemini or groq")
+        if provider == "groq":
+            # Groq-only: never initialize or invoke Gemini answer generation.
+            self.generator = GroqAnswerGenerator(system_prompt=SYSTEM_PROMPT)
+        else:
+            # Legacy Gemini primary, with optional one-shot Groq failover.
+            primary = GroundedAnswerGenerator()
+            flag = os.getenv("GROQ_FALLBACK_ENABLED", "false").strip().lower()
+            if flag not in {"", "0", "false", "no", "1", "true", "yes"}:
+                raise ValueError("GROQ_FALLBACK_ENABLED must be true or false")
+            self.generator = primary
+            if flag in {"1", "true", "yes"}:
+                self.generator = FailoverAnswerGenerator(
+                    primary=primary,
+                    fallback=GroqAnswerGenerator(system_prompt=SYSTEM_PROMPT),
+                )
         self.citation_builder = CitationBuilder()
 
     def answer(
