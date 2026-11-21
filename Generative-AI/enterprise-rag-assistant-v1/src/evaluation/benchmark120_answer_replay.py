@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import Counter
 import json
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -139,6 +140,7 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
         answers_path: Path, split: str = "dev", unlock_test: bool = False,
         max_new: int = 0, confirm_generation: bool = False, model_name: str | None = None,
         request_budget: int | None = None, provider: str = "gemini",
+        extend_request_budget: bool = False, request_spacing_seconds: float = 0,
         generator_factory: Callable[..., Any] | None = None,
         context_builder_factory: Callable[[], Any] | None = None,
         citation_builder_factory: Callable[[], Any] | None = None,
@@ -146,6 +148,10 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
     """Offline preview by default. Explicit consent gates each bounded live batch."""
     if provider not in {"gemini", "groq"}:
         raise ValueError("Generation provider must be gemini or groq")
+    if not isinstance(request_spacing_seconds, (int, float)) or not 0 <= request_spacing_seconds <= 600:
+        raise ValueError("Request spacing must be between 0 and 600 seconds")
+    if type(extend_request_budget) is not bool:
+        raise ValueError("Budget extension authorization must be boolean")
     if type(max_new) is not int or max_new < 0:
         raise ValueError("max_new must be a nonnegative integer")
     if max_new and not confirm_generation:
@@ -213,6 +219,7 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
         ledger_path, experiment_sha256=experiment_id,
         requested_limit=request_budget, default_batch_limit=max_new,
         saved_provider_answers=sum(row["model"] is not None for row in saved.values()),
+        allow_budget_extension=extend_request_budget,
     )
     generator.request_budget = budget
     report["provider_request_budget"] = budget.limit if budget_scope == "persistent" else max_new
@@ -220,6 +227,7 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
     report["provider_requests_cumulative"] = requests_before_run
     report["provider_requests_remaining"] = budget.remaining
     run_id = uuid.uuid4().hex
+    last_generation_finished: float | None = None
     for q in pending[:max_new]:
         if not budget.remaining:
             break
@@ -229,6 +237,10 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
                 "experiment_sha256": experiment_id, "model": chosen_model, **event})
         generator.observer = observe
         candidate_rows = _candidates(retrieval[qid], chunks)
+        if last_generation_finished is not None and request_spacing_seconds:
+            remaining = request_spacing_seconds - (time.monotonic() - last_generation_finished)
+            if remaining > 0:
+                time.sleep(remaining)
         try:
             result = compose_fn(
                 question=q["question"], candidates=candidate_rows,
@@ -245,6 +257,7 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
                 f"Generation stopped for {qid} ({category}); previous answers preserved; "
                 "no new query embeddings requested"
             ) from exc
+        last_generation_finished = time.monotonic()
         trace = result.get("evaluation_trace") or {}
         row = {
             "question_id": qid, "split": q["split"],
@@ -269,6 +282,7 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
                                     for record in qs if record["question_id"] in saved))
         observe({"event": "answer_saved"})
         report["newly_saved"] += 1
+        print(f"CAPTURE_SAVED {qid}: {report['newly_saved']} new, {len(saved)}/{len(qs)} total", flush=True)
     report["answer_checkpointed"] = len(saved)
     report["answer_pending"] = sum(q["question_id"] in retrieval and q["question_id"] not in saved for q in qs)
     report["provider_requests_used"] = budget.used - requests_before_run
