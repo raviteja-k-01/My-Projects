@@ -1,7 +1,8 @@
 """RAG-120 answer evaluation from source-verified saved hybrid rankings.
 
-All preview/report calls run offline. CAPTURE invokes Gemini generation only after
---confirm-generation, never embeddings or Qdrant. Test split is locked by default.
+All preview/report calls run offline. CAPTURE invokes the explicitly selected
+generation provider (Gemini or Groq) only after --confirm-generation, never
+embeddings or Qdrant. Test split is locked by default.
 """
 from __future__ import annotations
 
@@ -26,13 +27,15 @@ def main(argv: list[str] | None = None) -> None:
         p.add_argument("--unlock-test", action="store_true", help="Explicitly unlock held-out test")
     preview = sub.add_parser("preview", help="Verify checkpoint and summarize pending answer generation, offline")
     common(preview)
-    capture = sub.add_parser("capture", help="Bounded, resumable Gemini generation only; live consent required")
+    capture = sub.add_parser("capture", help="Bounded, resumable generation-only capture; live consent required")
     common(capture)
     capture.add_argument("--max-new", type=int, default=0)
     capture.add_argument("--confirm-generation", action="store_true")
     capture.add_argument("--request-budget", type=int,
                          help="Total provider attempts, including retries (default: max-new)")
-    capture.add_argument("--model", help="Optional generation model override; do not mix models in one answer checkpoint")
+    capture.add_argument("--model", help="Optional generation model override; Groq uses GROQ_FALLBACK_MODEL")
+    capture.add_argument("--provider", choices=("gemini", "groq"), default="gemini",
+                         help="Explicit generation provider for this capture; does not use embeddings")
     inspect = sub.add_parser("report", help="Summarize saved answers, optionally export blank human reviews")
     common(inspect)
     inspect.add_argument("--review-export", type=Path)
@@ -46,7 +49,8 @@ def main(argv: list[str] | None = None) -> None:
             result = run(**kwargs)
         elif args.command == "capture":
             result = run(**kwargs, max_new=args.max_new, confirm_generation=args.confirm_generation,
-                         model_name=args.model, request_budget=args.request_budget)
+                         model_name=args.model, request_budget=args.request_budget,
+                         provider=args.provider)
         else:
             result = report(**kwargs, review_export=args.review_export, reviews_path=args.reviews)
     except Exception as exc:
