@@ -30,8 +30,9 @@ The earlier 30-question gold workflow remains a separate historical experiment.
 
 PDF text/tables become deterministic chunks indexed in Qdrant and BM25S. Hybrid
 results are fused with RRF, then up to eight evidence chunks are selected within
-an estimated body-token budget. Gemini generates an answer and citation syntax
-and metadata are checked before FastAPI returns it to Streamlit.
+an estimated body-token budget. The configured generation provider (Groq or
+Gemini) produces an answer; citation syntax and metadata are checked before
+FastAPI returns it to Streamlit.
 
 Keyword-only fallback is explicitly labeled `bm25_fallback`; strict evaluation
 never counts it as hybrid retrieval. Zero-score BM25 matches are excluded.
@@ -71,6 +72,10 @@ shared controls; the current rate limiter/cache are process-local.
 
 | Variable | Default / meaning |
 | --- | --- |
+| `RAG_GENERATION_PROVIDER` | `gemini` for backward compatibility; set `groq` to use Groq-only answer generation |
+| `GROQ_API_KEY` | Required for Groq-only generation or Gemini→Groq fallback; store only in `.env` |
+| `GROQ_FALLBACK_MODEL` | `openai/gpt-oss-120b`; model name used in both Groq modes |
+| `GROQ_FALLBACK_ENABLED` | `false`; only applicable with `RAG_GENERATION_PROVIDER=gemini` |
 | `GEMINI_GENERATION_MODEL` | `gemini-3.6-flash`; confirm project access before use |
 | `GEMINI_GENERATION_KEY_ENV` | `GEMINI_API_KEY`; explicit alternative `GEMINI_API_KEY_1` |
 | `GEMINI_EMBEDDING_KEY_ENV` | Independent authorized embedding credential selector |
@@ -79,7 +84,9 @@ shared controls; the current rate limiter/cache are process-local.
 | `GEMINI_GENERATION_MAX_OUTPUT_TOKENS` | 1024; allowed 1–8192 |
 | `GEMINI_GENERATION_THINKING_LEVEL` | `low`; blank omits the option for incompatible models |
 
-The SDK makes one attempt. Optional application retries use bounded exponential
+Gemini generation is never called when `RAG_GENERATION_PROVIDER=groq`.
+Gemini query embeddings remain required for dense retrieval. The Gemini SDK
+makes one attempt. Optional application retries use bounded exponential
 backoff with jitter for transient server/transport failures. Quota/authentication
 failures stop immediately. Credentials never rotate automatically. Incomplete,
 blocked or empty responses are rejected. Public errors omit raw provider details.

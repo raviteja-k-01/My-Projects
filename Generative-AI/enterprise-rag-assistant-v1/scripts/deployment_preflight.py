@@ -25,23 +25,37 @@ class PreflightError(ValueError):
 
 def validate_config(environ: Mapping[str, str]) -> None:
     """Validate required ENV names without exposing secret contents."""
-    required = REQUIRED_NAMES
-    if "GEMINI_API_KEY" in (environ.get("GEMINI_EMBEDDING_KEY_ENV", "GEMINI_API_KEY").strip(),
-                            environ.get("GEMINI_GENERATION_KEY_ENV", "GEMINI_API_KEY").strip()):
-        required += ("GEMINI_API_KEY",)
-    missing = [key for key in required if not environ.get(key, "").strip()]
-    if missing:
-        raise PreflightError("Missing required environment variables: " + ", ".join(missing))
+    provider = environ.get("RAG_GENERATION_PROVIDER", "gemini").strip().lower()
+    if provider not in {"gemini", "groq"}:
+        raise PreflightError("RAG_GENERATION_PROVIDER must be gemini or groq")
+
     selected = environ.get("GEMINI_EMBEDDING_KEY_ENV", "GEMINI_API_KEY").strip()
     if selected not in ALLOWED_EMBEDDING_KEYS:
         raise PreflightError("GEMINI_EMBEDDING_KEY_ENV must name an allowed key variable")
+
+    required = REQUIRED_NAMES
+    if selected == "GEMINI_API_KEY":
+        required += ("GEMINI_API_KEY",)
+    if provider == "groq":
+        required += ("GROQ_API_KEY",)
+    else:
+        generation_key = environ.get("GEMINI_GENERATION_KEY_ENV", "GEMINI_API_KEY").strip()
+        if generation_key not in ALLOWED_EMBEDDING_KEYS:
+            raise PreflightError("GEMINI_GENERATION_KEY_ENV must name an allowed key variable")
+        if generation_key == "GEMINI_API_KEY":
+            required += ("GEMINI_API_KEY",)
+
+    missing = [key for key in dict.fromkeys(required) if not environ.get(key, "").strip()]
+    if missing:
+        raise PreflightError("Missing required environment variables: " + ", ".join(missing))
     if not environ.get(selected, "").strip():
         raise PreflightError(f"Selected embedding environment variable is empty: {selected}")
-    generation_key = environ.get("GEMINI_GENERATION_KEY_ENV", "GEMINI_API_KEY").strip()
-    if generation_key not in ALLOWED_EMBEDDING_KEYS:
-        raise PreflightError("GEMINI_GENERATION_KEY_ENV must name an allowed key variable")
-    if not environ.get(generation_key, "").strip():
-        raise PreflightError(f"Selected generation environment variable is empty: {generation_key}")
+
+    if provider == "gemini":
+        generation_key = environ.get("GEMINI_GENERATION_KEY_ENV", "GEMINI_API_KEY").strip()
+        if not environ.get(generation_key, "").strip():
+            raise PreflightError(f"Selected generation environment variable is empty: {generation_key}")
+
     if not environ["QDRANT_URL"].strip().startswith(("http://", "https://")):
         raise PreflightError("QDRANT_URL must be an HTTP(S) URL")
 
