@@ -32,6 +32,41 @@ corpus text. It never sees benchmark reference answers or expected facts.
   Human review of factual completeness, unsupported claims, citation accuracy
   and appropriate abstention is needed.
 
+## Evaluate the Groq-only live generation configuration
+
+The existing replay CLI now accepts **`--provider groq`** on `capture`. This
+uses the production `GroqAnswerGenerator` (including citation-format
+normalization) with the same `SYSTEM_PROMPT`, `ContextBuilder`,
+`CitationBuilder` and `compose_answer` as the live application. A thin
+evaluation adapter records the Groq model, settings, prompt/source hashes,
+single-request budget and safe request events. **No Gemini generation, Gemini
+query embeddings or Qdrant requests** occur during this saved-retrieval replay.
+
+Use a **new, isolated answer file**. Do not combine prior Gemini answers with
+Groq results or modify the held-out test split. `GROQ_API_KEY` must be available
+in local, gitignored `.env`.
+
+From PowerShell in this project directory:
+
+```powershell
+# OFFLINE — check 80 development rankings and source hashes.
+wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -m scripts.evaluate_benchmark120_answers preview --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl --answers data/processed/benchmark120_answers_dev_groq.jsonl"
+
+# LIVE — capture ONE Groq answer, with cumulative cap of five attempts.
+# This invocation makes at most one Groq request, not five.
+wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -m scripts.evaluate_benchmark120_answers capture --provider groq --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl --answers data/processed/benchmark120_answers_dev_groq.jsonl --max-new 1 --request-budget 5 --confirm-generation"
+
+# OFFLINE — report answer count, mechanical citation validity and pending reviews.
+wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -m scripts.evaluate_benchmark120_answers report --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl --answers data/processed/benchmark120_answers_dev_groq.jsonl"
+```
+
+Use `report --review-export PATH` with a new path to create **blank human
+review forms** containing the actual answer, selected evidence and expected
+facts. Only independently reviewed answers can establish accuracy. The replay
+follows strict saved hybrid rankings and therefore does not test live query
+embedding latency, router accuracy or provider uptime. Groq may still fail
+or return invalid citations; errors halt and preserve completed captures.
+
 ## PowerShell commands from the project directory
 
 ```powershell
