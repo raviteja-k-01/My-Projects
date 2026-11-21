@@ -67,6 +67,43 @@ follows strict saved hybrid rankings and therefore does not test live query
 embedding latency, router accuracy or provider uptime. Groq may still fail
 or return invalid citations; errors halt and preserve completed captures.
 
+## Resume the same Groq development capture safely (no re-generation)
+
+**Current local state (2026-11-21, supplied by project operator):** 80 saved
+strict-hybrid development retrievals; 4 generated Groq answers from 5 provider
+attempts (1 returned HTTP 429). The persistent `--request-budget 5` is fully
+used, independently of the provider's remaining free quota.
+
+The CLI supports a **separately authorized, audited extension** of the same
+source-locked experiment. It DOES NOT touch the four saved answers or
+overwrite the attempt ledger. Raising the budget without the explicit
+`--extend-request-budget` flag still fails; reducing it is forbidden. The
+budget metadata records each increase with old/new limit and timestamp.
+
+Run the next **10 new development questions at most**, with a 65-second
+minimum gap between finished generation requests to reduce minute-level
+rate-limit failures. Request spacing **does not bypass daily/token quotas**;
+a 429 stops the run and preserves all earlier saved answers. The limits for
+the exact Groq organization must still be checked on the Groq dashboard.
+
+```powershell
+git pull --ff-only origin main
+
+wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -m scripts.evaluate_benchmark120_answers capture --provider groq --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl --answers data/processed/benchmark120_answers_dev_groq.jsonl --max-new 10 --request-budget 15 --extend-request-budget --request-spacing-seconds 65 --confirm-generation"
+```
+
+Output has one `CAPTURE_SAVED` line per success, then the usual JSON
+summary. The cumulative cap of 15 covers **all** previous and new provider
+attempts, including failures: with 5 spent, this command permits up to 10
+more attempts. If an error occurs after 2 saved answers, the remaining
+questions can resume **with the identical command** after the provider
+quota resets, since a matching cap requires no further extension.
+
+To increase the total cap later, explicitly choose a larger number with
+the same `--extend-request-budget` flag. The tool never silently increases
+its budget and never retries 429 automatically. Review generated answers
+independently; `4/80` or `14/80` is capture coverage, **not** accuracy.
+
 ## PowerShell commands from the project directory
 
 ```powershell
