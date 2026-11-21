@@ -57,7 +57,10 @@ _POLICY_CUES = re.compile(
     r"password|vpn|account|approval|approvals|control|controls|"
     r"remote work|people operations|provisioning|revocation|"
     r"training|identity|governance|procedure|procedures|"
-    r"documents|documentation|internal)\b",
+    r"documents|documentation|internal|work from home|wfh|"
+    r"remote|remotely|fired|layoff|layoffs|resignation|quit|"
+    r"vacation|sick leave|sick day|laptop|device|equipment|"
+    r"lost badge|badge|injury|harassment|promotion)\b",
     re.IGNORECASE,
 )
 
