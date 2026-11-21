@@ -31,6 +31,44 @@ python -m scripts.evaluate_benchmark120 score-retrieval \
 
 These operations require only local Python and files. **No embeddings, Gemini generation, Qdrant or network access.** Nothing is written inside `data/processed/` unless you choose that destination.
 
+## Fast offline retrieval-label review (first five dev questions)
+
+The existing 80 source-locked strict-hybrid development retrievals can be
+reviewed **without Groq, Gemini, Qdrant, embedding calls or model quotas**.
+The new `export-review-packet` command reconstructs actual top-10 source
+chunks plus **independent, unverified** source-anchor matches for the first
+five answerable development questions. It also creates a separate **blank**
+relevance-label JSONL; nothing is automatically verified or scored.
+
+PowerShell, from the project root:
+
+```powershell
+wsl -d Ubuntu -- bash -lc "cd /mnt/s/github/My-Projects/Generative-AI/enterprise-rag-assistant-v1 && ~/.venvs/enterprise-rag-v1/bin/python -m scripts.evaluate_benchmark120 export-review-packet --chunks /mnt/c/Users/ravit/Downloads/rag-v1-retrieval-artifacts/processed/chunks.jsonl --checkpoint data/processed/benchmark120_hybrid_dev.jsonl --out-dir data/processed/rag120_retrieval_review_001_005 --limit 5 --top-k 10"
+```
+
+Review `retrieval_review_packet.jsonl` against the policies **before**
+editing `relevance_labels_UNREVIEWED.jsonl`. For each answerable case,
+verify the full relevant set and set `review_state="verified"`,
+`reviewer` and `verified_relevant_chunk_ids` only after human source
+review. A source substring or a retrieved top-10 hit by itself is **not**
+a relevant gold label. Do not label test cases or copy the generated answer's
+claims into the retrieval ground truth.
+
+After actual source verification, the existing scorer accepts the completed
+labels file:
+
+```bash
+python -m scripts.evaluate_benchmark120 score-retrieval \
+  --labels data/processed/rag120_retrieval_review_001_005/relevance_labels_UNREVIEWED.jsonl \
+  --checkpoint data/processed/benchmark120_hybrid_dev.jsonl \
+  --split dev --k 5 --k 10
+```
+
+**Do not publish the resulting partial-sample Recall or MRR as an 80-question
+score.** Completeness of relevant-chunk labels matters especially for Recall.
+For the next batch, provide `--start 5 --limit 5` and a **new** output
+directory; the command refuses overwriting existing human work.
+
 ## Which checks are authoritative?
 
 - **Located anchor:** An evidence snippet or composite table clause appears in a real corpus chunk, usually on a listed page. This is a *source-occurrence check*, not factual entailment. The current supplied corpus matched all 148 snippets; the audit still flags 15 missing *document-level* anchors across 14 answerable questions.
