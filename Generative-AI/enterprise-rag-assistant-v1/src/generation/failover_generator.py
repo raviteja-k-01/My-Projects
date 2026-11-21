@@ -12,6 +12,7 @@ from typing import Any
 import requests
 
 from src.generation.reliability import GenerationError
+from src.generation.citation_normalizer import normalize_explicit_citations
 
 LOGGER = logging.getLogger(__name__)
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -48,7 +49,10 @@ class GroqAnswerGenerator:
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": (
                     f"Question:\n{question}\n\nEvidence:\n{context}\n\n"
-                    "Answer the question using only the evidence above."
+                    "Answer the question using only the evidence above. "
+                    "Cite each supported factual claim using [Evidence N] (for example, "
+                    "[Evidence 1] or [Evidence 1, Evidence 2]). Repeat the word "
+                    "Evidence before every number; do not use bare numbers or citation ranges."
                 )},
             ],
             "max_completion_tokens": self.max_output_tokens,
@@ -88,7 +92,11 @@ class GroqAnswerGenerator:
             raise GenerationError("invalid_response", "Groq fallback returned an invalid response.") from exc
         if finish != "stop" or not isinstance(answer, str) or not answer.strip():
             raise GenerationError("invalid_response", "Groq fallback did not return a complete answer.")
-        return {"answer": answer.strip(), "model": self.model_name, "usage": usage}
+        # Groq sometimes uses explicit but noncanonical citation punctuation.
+        # Repair notation deterministically; CitationBuilder still rejects
+        # malformed or nonexistent references. No new IDs are invented.
+        return {"answer": normalize_explicit_citations(answer.strip()),
+                "model": self.model_name, "usage": usage}
 
 
 class FailoverAnswerGenerator:
