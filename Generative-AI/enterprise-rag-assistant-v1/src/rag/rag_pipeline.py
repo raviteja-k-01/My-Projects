@@ -27,14 +27,16 @@ class EnterpriseRAGPipeline:
     def __init__(self) -> None:
         self.retriever = HybridRetriever()
         self.context_builder = ContextBuilder(max_chunks=8, max_context_tokens=4000)
-        # Optional LIVE-only failover. Benchmark replay keeps using Gemini explicitly.
+        # GroundedAnswerGenerator loads local .env before the fallback flag is read.
+        # Optional LIVE-only failover; benchmark replay keeps Gemini explicitly.
+        primary = GroundedAnswerGenerator()
         flag = os.getenv("GROQ_FALLBACK_ENABLED", "false").strip().lower()
         if flag not in {"", "0", "false", "no", "1", "true", "yes"}:
             raise ValueError("GROQ_FALLBACK_ENABLED must be true or false")
-        self.generator = GroundedAnswerGenerator()
+        self.generator = primary
         if flag in {"1", "true", "yes"}:
             self.generator = FailoverAnswerGenerator(
-                primary=self.generator,
+                primary=primary,
                 fallback=GroqAnswerGenerator(system_prompt=SYSTEM_PROMPT),
             )
         self.citation_builder = CitationBuilder()
