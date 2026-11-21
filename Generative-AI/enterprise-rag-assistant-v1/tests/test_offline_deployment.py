@@ -65,3 +65,37 @@ def test_streamlit_startup_submission_and_provider_error(monkeypatch, status):
     assert not app.exception
     assert len(calls) == 1
     assert bool(app.error) == (status == 503)
+
+
+
+def test_streamlit_keeps_generation_failover_internal(monkeypatch):
+    """The end user sees the answer, not provider outage/fallback internals."""
+    from streamlit.testing.v1 import AppTest
+    import requests
+
+    def post(_url, **_kwargs):
+        return SimpleNamespace(
+            status_code=200,
+            json=lambda: {
+                "answer": "Manager approval is required. [Evidence 1]",
+                "citations": [],
+                "retrieval_mode": "hybrid",
+                "generation_fallback_used": True,
+                "model": "openai/gpt-oss-120b",
+                "evidence_count": 1,
+                "latency": {"total_seconds": 4.5},
+            },
+        )
+
+    monkeypatch.setattr(requests, "post", post)
+    app = AppTest.from_file(Path("src/ui/app.py").resolve()).run()
+    app.text_area[0].set_value("What are the privileged access requirements?")
+    app.button[0].click().run()
+    assert not app.exception
+    assert any("Manager approval" in str(item) for item in app.markdown)
+    visible = "\n".join(str(item) for collection in (app.info, app.text, app.markdown)
+                        for item in collection)
+    assert "Gemini generation was unavailable" not in visible
+    assert "Groq fallback model" not in visible
+    assert "openai/gpt-oss-120b" not in visible
+    assert "Generation model:" not in visible
