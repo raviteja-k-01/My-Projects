@@ -92,7 +92,7 @@ def test_streamlit_keeps_generation_failover_internal(monkeypatch):
     app.text_area[0].set_value("What are the privileged access requirements?")
     app.button[0].click().run()
     assert not app.exception
-    assert any("Manager approval" in str(item) for item in app.markdown)
+    assert any("Manager approval" in item.value for item in app.markdown)
     visible = "\n".join(str(item) for collection in (app.info, app.text, app.markdown)
                         for item in collection)
     assert "Gemini generation was unavailable" not in visible
