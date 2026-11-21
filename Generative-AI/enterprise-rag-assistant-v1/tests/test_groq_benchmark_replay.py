@@ -54,7 +54,7 @@ def test_groq_capture_is_source_locked_metered_and_resumable(monkeypatch, tmp_pa
     resumed = run(**opts, provider="groq", max_new=1,
                   confirm_generation=True, request_budget=1)
     assert resumed["newly_saved"] == 0
-    assert resumed["provider_requests_remaining"] == 0
+    assert resumed["answer_checkpointed"] == 1
     assert len(clients[0].calls) == 1
 
 
