@@ -70,6 +70,10 @@ def compose_answer(
         "question": question,
         "retrieval_mode": retrieval_mode,
         "retrieval_source": retrieval_source,
+        "retrieval_strategy": (
+            "comparison_facet_coverage" if any("facet_query" in c for c in candidates)
+            else "baseline"
+        ),
         "answer": citation_result["answer"],
         "citations": citation_result["citations"],
         "citation_count": citation_result["citation_count"],

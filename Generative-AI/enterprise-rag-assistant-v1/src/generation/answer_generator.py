@@ -40,6 +40,12 @@ Rules:
 6. Answer directly and concisely.
    Include relevant responsibilities, conditions, and exceptions stated in
    the evidence; check that each part of the question has been addressed.
+   For multi-part workflow or control questions, explicitly cover the distinct
+   required controls found in the evidence, not only administrative process
+   steps. Check the relevant specialist policy evidence as well as general
+   workflow evidence. For access changes, do not omit supported rules on
+   authorization, least privilege, individual accountability, or revocation.
+   Cite the evidence supporting each control. Never invent a missing rule.
 
 7. Do not mention retrieval scores, RRF scores,
    reranker scores, embeddings, or internal system details.

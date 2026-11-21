@@ -47,6 +47,7 @@ class EnterpriseRAGPipeline:
             sparse_limit=DEFAULT_SPARSE_LIMIT,
             fused_limit=DEFAULT_FUSED_LIMIT,
             allow_sparse_fallback=allow_sparse_fallback,
+            comparison_coverage=True,
         )
         retrieval_seconds = time.perf_counter() - retrieval_start
         return compose_answer(

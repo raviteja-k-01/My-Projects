@@ -6,6 +6,7 @@ from src.indexing.bm25_index import BM25Index
 from src.indexing.embedding_client import GeminiEmbeddingClient
 from src.indexing.qdrant_store import QdrantStore
 from src.retrieval.rrf import reciprocal_rank_fusion
+from src.retrieval.comparison_coverage import comparison_facets, cover_comparison_facets
 
 
 DEFAULT_DENSE_LIMIT = 20
@@ -155,6 +156,7 @@ class HybridRetriever:
         fused_limit: int = DEFAULT_FUSED_LIMIT,
         *,
         allow_sparse_fallback: bool = False,
+        comparison_coverage: bool = False,
     ) -> tuple[list[dict[str, Any]], str]:
         """Return (ranked_chunks, mode), with explicit application-only fallback.
 
@@ -184,6 +186,18 @@ class HybridRetriever:
             sparse_results=sparse_results,
             limit=fused_limit,
         )
+        # Live-only experimental coverage: one dense embedding for the original
+        # question plus bounded local BM25 searches for independent facets.
+        # Strict evaluation's retrieve() uses the unchanged baseline ranking.
+        if comparison_coverage:
+            facets = comparison_facets(query)
+            if facets:
+                ranked = cover_comparison_facets(
+                    original=ranked,
+                    facets=facets,
+                    sparse_search=lambda facet, count: self._sparse_search(facet, count),
+                    limit=fused_limit,
+                )
         return ranked, mode
 
     def close(self) -> None:
