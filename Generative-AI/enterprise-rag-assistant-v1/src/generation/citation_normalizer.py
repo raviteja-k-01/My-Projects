@@ -23,7 +23,7 @@ _BRACKETS = re.compile(
 _GROUP = re.compile(
     r"""
     \s*Evidence\s+\#?\s*\d+
-    (?:\s*(?:,|;|&|\band\b)\s*(?:Evidence\s+\#?\s*)?\d+)*
+    (?:\s*(?:,|;|&|\band\b)\s*(?:Evidence\s+)?\#?\s*\d+)*
     \s*
     """,
     re.IGNORECASE | re.VERBOSE,
