@@ -80,6 +80,7 @@ def compose_answer(
         "evidence_count": context_result["evidence_count"],
         "evidence_tokens": context_result["total_tokens"],
         "model": generated["model"],
+        "generation_fallback_used": bool(generated.get("generation_fallback_used", False)),
         "usage": generated["usage"],
         "latency": {
             "retrieval_seconds": retrieval_seconds,

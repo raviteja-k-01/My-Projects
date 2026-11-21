@@ -1,10 +1,12 @@
 """Enterprise RAG pipeline: retrieve, then assemble a grounded answer."""
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 
-from src.generation.answer_generator import GroundedAnswerGenerator
+from src.generation.answer_generator import GroundedAnswerGenerator, SYSTEM_PROMPT
+from src.generation.failover_generator import FailoverAnswerGenerator, GroqAnswerGenerator
 from src.generation.citation_builder import CitationBuilder
 from src.rag.answer_composer import compose_answer
 from src.retrieval.context_builder import ContextBuilder
@@ -25,7 +27,18 @@ class EnterpriseRAGPipeline:
     def __init__(self) -> None:
         self.retriever = HybridRetriever()
         self.context_builder = ContextBuilder(max_chunks=8, max_context_tokens=4000)
-        self.generator = GroundedAnswerGenerator()
+        # GroundedAnswerGenerator loads local .env before the fallback flag is read.
+        # Optional LIVE-only failover; benchmark replay keeps Gemini explicitly.
+        primary = GroundedAnswerGenerator()
+        flag = os.getenv("GROQ_FALLBACK_ENABLED", "false").strip().lower()
+        if flag not in {"", "0", "false", "no", "1", "true", "yes"}:
+            raise ValueError("GROQ_FALLBACK_ENABLED must be true or false")
+        self.generator = primary
+        if flag in {"1", "true", "yes"}:
+            self.generator = FailoverAnswerGenerator(
+                primary=primary,
+                fallback=GroqAnswerGenerator(system_prompt=SYSTEM_PROMPT),
+            )
         self.citation_builder = CitationBuilder()
 
     def answer(
