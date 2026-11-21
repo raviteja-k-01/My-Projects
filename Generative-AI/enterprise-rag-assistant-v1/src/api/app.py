@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 import os
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -31,6 +32,7 @@ class AskRequest(BaseModel):
 
 rag_pipeline: EnterpriseRAGPipeline | None = None
 rate_limiter = SlidingWindowRateLimiter(limit=int(os.getenv("RAG_RATE_LIMIT_PER_MINUTE", "12")))
+logger = logging.getLogger("uvicorn.error")
 
 
 @asynccontextmanager
@@ -75,6 +77,23 @@ def health():
 # --------------------------------------------------
 # RAG endpoint
 # --------------------------------------------------
+
+# Only bounded diagnostic categories appear in logs, never raw provider
+# responses, user questions, evidence text or exception details.
+def classify_validation_error(exc: ValueError) -> str:
+    message = str(exc)
+    if message.startswith("Answer cites Evidence ") and "evidence does not exist" in message:
+        return "citation_unknown_evidence"
+    if message == "Malformed or unbracketed evidence reference":
+        return "citation_malformed"
+    if message == "Duplicate evidence IDs":
+        return "citation_duplicate_ids"
+    if message == "Answer cannot be empty":
+        return "answer_empty"
+    if message == "Evidence cannot be empty":
+        return "evidence_empty"
+    return "other_validation_error"
+
 
 def enforce_rate_limit(http_request: Request) -> None:
     # Use the actual peer address; forwarded headers are trusted only if the
@@ -130,6 +149,7 @@ def ask(request: AskRequest, _rate_limit: None = Depends(enforce_rate_limit)):
         ) from exc
 
     except ValueError as exc:
+        logger.warning("RAG_VALIDATION_FAILED category=%s", classify_validation_error(exc))
         raise HTTPException(
             status_code=502,
             detail="The RAG service could not produce a valid grounded answer.",
