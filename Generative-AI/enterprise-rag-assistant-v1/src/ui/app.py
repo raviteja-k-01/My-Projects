@@ -68,6 +68,7 @@ if submitted:
         st.stop()
 
     retrieval_mode = result.get("retrieval_mode", "hybrid")
+    response_type = result.get("response_type", "grounded_answer")
     if retrieval_mode == "bm25_fallback":
         st.warning(
             "Semantic search is temporarily unavailable. "
@@ -92,14 +93,15 @@ if submitted:
                 f"**{doc}**  \nPage: {page}  \n"
                 f"Section: {section}  \nChunk: `{chunk}`"
             )
-    else:
+    elif response_type == "grounded_answer":
         st.info("No source citations were returned. Verify this answer before relying on it.")
 
     latency = result.get("latency", {})
-    with st.expander("Retrieval details"):
-        st.write("Mode:", retrieval_mode)
-        st.write("Evidence chunks:", result.get("evidence_count", "Unknown"))
-        st.write("Generation model:", result.get("model", "Unknown"))
-        seconds = latency.get("total_seconds")
-        if isinstance(seconds, (int, float)):
-            st.write(f"Total latency: {seconds:.2f} s")
+    if retrieval_mode != "not_run":
+        with st.expander("Retrieval details"):
+            st.write("Mode:", retrieval_mode)
+            st.write("Evidence chunks:", result.get("evidence_count", "Unknown"))
+            st.write("Generation model:", result.get("model", "Not needed"))
+            seconds = latency.get("total_seconds")
+            if isinstance(seconds, (int, float)):
+                st.write(f"Total latency: {seconds:.2f} s")
