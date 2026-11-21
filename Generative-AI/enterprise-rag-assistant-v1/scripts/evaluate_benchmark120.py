@@ -204,6 +204,15 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     check.add_argument("--chunks", type=Path, required=True)
     check.add_argument("--out", type=Path, required=True)
+    packet = sub.add_parser("export-review-packet", help="Offline: source-locked top-K retrieval excerpts and blank human labels")
+    packet.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
+    packet.add_argument("--chunks", type=Path, required=True)
+    packet.add_argument("--checkpoint", type=Path,
+                        default=Path("data/processed/benchmark120_hybrid_dev.jsonl"))
+    packet.add_argument("--out-dir", type=Path, required=True)
+    packet.add_argument("--start", type=int, default=0)
+    packet.add_argument("--limit", type=int, default=5)
+    packet.add_argument("--top-k", type=int, default=10)
     init = sub.add_parser("init-labels", help="Create empty, unreviewed relevance label template")
     init.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     init.add_argument("--audit-dir", type=Path, required=True)
@@ -238,6 +247,13 @@ def main(argv: list[str] | None = None) -> int:
             result = audit(args.dataset, args.chunks, args.out)
         elif args.command == "init-labels":
             result = initialize_relevance_labels(args.dataset, args.audit_dir, args.out)
+        elif args.command == "export-review-packet":
+            from src.evaluation.benchmark120_retrieval_review import export_review_packet
+            result = export_review_packet(
+                dataset_path=args.dataset, corpus_path=args.chunks,
+                retrieval_path=args.checkpoint, output_dir=args.out_dir,
+                start=args.start, limit=args.limit, top_k=args.top_k,
+            )
         elif args.command == "capture-hybrid":
             from src.evaluation.benchmark120_hybrid_capture import capture_hybrid
             result = capture_hybrid(
