@@ -17,7 +17,7 @@ st.set_page_config(
     layout="centered",
 )
 st.title("Enterprise RAG Assistant")
-st.caption("Ask questions about the project's fictional enterprise policy documents.")
+st.caption("Welcome! Ask about HR, security, access, or workplace procedures in the sample policy library.")
 
 with st.form("rag_query", clear_on_submit=False):
     question = st.text_area(
