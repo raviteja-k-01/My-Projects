@@ -138,12 +138,14 @@ def _candidates(retrieval_row: dict[str, Any], chunks: dict[str, Any]) -> list[d
 def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
         answers_path: Path, split: str = "dev", unlock_test: bool = False,
         max_new: int = 0, confirm_generation: bool = False, model_name: str | None = None,
-        request_budget: int | None = None,
+        request_budget: int | None = None, provider: str = "gemini",
         generator_factory: Callable[..., Any] | None = None,
         context_builder_factory: Callable[[], Any] | None = None,
         citation_builder_factory: Callable[[], Any] | None = None,
         compose_fn: Callable[..., dict[str, Any]] | None = None) -> dict[str, Any]:
     """Offline preview by default. Explicit consent gates each bounded live batch."""
+    if provider not in {"gemini", "groq"}:
+        raise ValueError("Generation provider must be gemini or groq")
     if type(max_new) is not int or max_new < 0:
         raise ValueError("max_new must be a nonnegative integer")
     if max_new and not confirm_generation:
@@ -180,8 +182,12 @@ def run(*, dataset_path: Path, corpus_path: Path, retrieval_path: Path,
 
     # Import only after the live gate. Never initialize HybridRetriever/Qdrant/embeddings.
     if generator_factory is None:
-        from src.generation.answer_generator import GroundedAnswerGenerator
-        generator_factory = GroundedAnswerGenerator
+        if provider == "groq":
+            from src.evaluation.groq_answer_generator import EvaluatedGroqAnswerGenerator
+            generator_factory = EvaluatedGroqAnswerGenerator
+        else:
+            from src.generation.answer_generator import GroundedAnswerGenerator
+            generator_factory = GroundedAnswerGenerator
     if context_builder_factory is None:
         from src.retrieval.context_builder import ContextBuilder
         context_builder_factory = ContextBuilder
