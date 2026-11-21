@@ -11,6 +11,7 @@ from src.generation.citation_builder import CitationBuilder
 from src.rag.answer_composer import compose_answer
 from src.retrieval.context_builder import ContextBuilder
 from src.retrieval.hybrid_retriever import HybridRetriever
+from src.rag.query_router import direct_response, lacks_relevant_evidence, quick_route
 
 DEFAULT_DENSE_LIMIT = 20
 DEFAULT_SPARSE_LIMIT = 20
@@ -53,6 +54,16 @@ class EnterpriseRAGPipeline:
             raise ValueError("Question cannot be empty")
 
         total_start = time.perf_counter()
+        # Fast, explicit chat/out-of-domain routes use no embeddings, Qdrant,
+        # BM25, or generation API. Keep strict evaluation on the original path.
+        if not evaluation_trace:
+            route = quick_route(question)
+            if route is not None:
+                return direct_response(
+                    question, response_type=route.response_type,
+                    answer=route.answer, started=total_start,
+                )
+
         retrieval_start = time.perf_counter()
         candidates, retrieval_mode = self.retriever.retrieve_with_mode(
             query=question,
@@ -63,6 +74,21 @@ class EnterpriseRAGPipeline:
             comparison_coverage=True,
         )
         retrieval_seconds = time.perf_counter() - retrieval_start
+
+        # Conservative, local post-retrieval guard: when no selected evidence
+        # shares even a substantive word with a non-policy question, do not
+        # spend a generation request on likely irrelevant context. Do not use
+        # this heuristic in benchmark traces or to reject policy-intent queries.
+        if not evaluation_trace and candidates:
+            selected = self.context_builder.build(candidates)["evidence"]
+            if lacks_relevant_evidence(question, selected):
+                from src.rag.query_router import NO_RELEVANT_EVIDENCE
+                return direct_response(
+                    question, response_type="insufficient_evidence",
+                    answer=NO_RELEVANT_EVIDENCE, started=total_start,
+                    retrieval_mode=retrieval_mode, retrieval_seconds=retrieval_seconds,
+                )
+
         return compose_answer(
             question=question,
             candidates=candidates,
