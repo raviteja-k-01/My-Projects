@@ -154,3 +154,89 @@ def test_evaluator_inflight_attempt_counts_on_resume(tmp_path):
     assert resumed['provider_requests_cumulative'] == 2
     assert resumed['provider_requests_remaining'] == 0
     assert resumed['newly_saved'] == 0 and len(calls) == 1
+
+
+def test_explicit_budget_extension_preserves_ledger_and_records_history(tmp_path):
+    path = tmp_path / 'attempts.jsonl'
+    fields = dict(experiment_sha256='abc', default_batch_limit=3, saved_provider_answers=0)
+    restore_request_budget(path, requested_limit=5, **fields)
+    for n in range(5):
+        start(path, f'before-{n}')
+    ledger_original = path.read_bytes()
+    with pytest.raises(ValueError, match='refusing to change'):
+        restore_request_budget(path, requested_limit=8, **fields)
+    with pytest.raises(ValueError, match='refusing to change'):
+        restore_request_budget(
+            path, requested_limit=4, allow_budget_extension=True, **fields
+        )
+    restored, used, scope = restore_request_budget(
+        path, requested_limit=8, allow_budget_extension=True, **fields
+    )
+    assert (restored.limit, used, restored.remaining, scope) == (8, 5, 3, 'persistent')
+    assert path.read_bytes() == ledger_original
+    cap_file = path.with_suffix(path.suffix + '.budget.json')
+    metadata = json.loads(cap_file.read_text())
+    assert metadata['limit'] == 8
+    assert [(x['from'], x['to']) for x in metadata['extensions']] == [(5, 8)]
+    # Rerunning the exact approved command does not append duplicate revisions.
+    restore_request_budget(
+        path, requested_limit=8, allow_budget_extension=True, **fields
+    )
+    assert len(json.loads(cap_file.read_text())['extensions']) == 1
+    assert restore_request_budget(path, requested_limit=None, **fields)[0].limit == 8
+    with pytest.raises(ValueError, match='requires --request-budget'):
+        restore_request_budget(
+            path, requested_limit=None, allow_budget_extension=True, **fields
+        )
+
+
+def test_original_evaluation_answers_can_continue_after_explicit_extension(tmp_path):
+    opts = sample(tmp_path)
+    calls = []
+
+    def compose_with_meter(**kwargs):
+        generator = kwargs['generator']
+        generator.request_budget.consume()
+        generator.observer({'event': 'started', 'attempt': 1})
+        generator.observer({'event': 'succeeded', 'attempt': 1})
+        calls.append(kwargs['question'])
+        return fake_compose(**kwargs)
+
+    invocation = {
+        **live_kws(opts), 'request_budget': 1, 'compose_fn': compose_with_meter
+    }
+    first = run(**invocation)
+    assert first['newly_saved'] == 1 and first['provider_requests_cumulative'] == 1
+    old_answer = opts['answers_path'].read_text().splitlines()[0]
+    with pytest.raises(ValueError, match='refusing to change'):
+        run(**{**invocation, 'request_budget': 2})
+    second = run(**{
+        **invocation, 'request_budget': 2, 'extend_request_budget': True
+    })
+    assert second['newly_saved'] == 1
+    assert second['answer_checkpointed'] == 2
+    assert second['provider_requests_cumulative'] == 2
+    assert opts['answers_path'].read_text().splitlines()[0] == old_answer
+    assert len(calls) == 2
+
+
+def test_request_spacing_delays_second_generation_without_extra_requests(monkeypatch, tmp_path):
+    import src.evaluation.benchmark120_answer_replay as replay
+    opts = sample(tmp_path)
+    slept = []
+
+    monkeypatch.setattr(replay.time, 'monotonic', lambda: 100.0)
+    monkeypatch.setattr(replay.time, 'sleep', lambda seconds: slept.append(seconds))
+    result = run(**{
+        **live_kws(opts), 'max_new': 2, 'request_spacing_seconds': 65.0,
+    })
+    assert result['newly_saved'] == 2
+    assert slept == [65.0]
+    assert result['new_embedding_calls'] == 0
+
+
+def test_request_spacing_rejects_bad_values_offline(tmp_path):
+    opts = sample(tmp_path)
+    for bad in (-1, 601, '65'):
+        with pytest.raises(ValueError, match='Request spacing'):
+            run(**opts, request_spacing_seconds=bad)

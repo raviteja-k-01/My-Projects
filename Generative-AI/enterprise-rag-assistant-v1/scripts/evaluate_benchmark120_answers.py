@@ -32,7 +32,11 @@ def main(argv: list[str] | None = None) -> None:
     capture.add_argument("--max-new", type=int, default=0)
     capture.add_argument("--confirm-generation", action="store_true")
     capture.add_argument("--request-budget", type=int,
-                         help="Total provider attempts, including retries (default: max-new)")
+                         help="Cumulative provider-attempt cap (includes failures); retained across runs")
+    capture.add_argument("--extend-request-budget", action="store_true",
+                         help="Explicitly raise an existing saved cumulative cap; preserves prior answers and ledger")
+    capture.add_argument("--request-spacing-seconds", type=float, default=0,
+                         help="Minimum pause between completed generation attempts within this invocation")
     capture.add_argument("--model", help="Optional generation model override; Groq uses GROQ_FALLBACK_MODEL")
     capture.add_argument("--provider", choices=("gemini", "groq"), default="gemini",
                          help="Explicit generation provider for this capture; does not use embeddings")
@@ -50,13 +54,16 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "capture":
             result = run(**kwargs, max_new=args.max_new, confirm_generation=args.confirm_generation,
                          model_name=args.model, request_budget=args.request_budget,
-                         provider=args.provider)
+                         provider=args.provider, extend_request_budget=args.extend_request_budget,
+                         request_spacing_seconds=args.request_spacing_seconds)
         else:
             result = report(**kwargs, review_export=args.review_export, reviews_path=args.reviews)
     except Exception as exc:
         # Chained SDK exceptions can contain request URLs/credentials. Never
         # print their traceback or raw contents in this operator-facing command.
-        category = getattr(exc, "category", "validation_or_capture_error")
+        root_cause = getattr(exc, "__cause__", None)
+        category = getattr(exc, "category",
+                           getattr(root_cause, "category", "validation_or_capture_error"))
         parser.exit(2, f"ERROR: evaluation stopped ({category}); existing checkpoints preserved. "
                        "Check source/configuration compatibility and the attempt ledger.\n")
     print(json.dumps(result, ensure_ascii=False, indent=2))

@@ -6,6 +6,7 @@ from functools import wraps
 import hashlib
 import json
 import os
+import tempfile
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -66,6 +67,7 @@ def append_event(path: Path, event: dict[str, Any]) -> None:
 def restore_request_budget(
     ledger_path: Path, *, experiment_sha256: str, requested_limit: int | None,
     default_batch_limit: int, saved_provider_answers: int,
+    allow_budget_extension: bool = False,
 ):
     """Restore attempts from the append-only ledger before any provider request.
 
@@ -86,11 +88,16 @@ def restore_request_budget(
         raise ValueError("Invalid saved-answer count")
     if requested_limit is not None and (type(requested_limit) is not int or requested_limit < 0):
         raise ValueError("Cumulative request budget must be a nonnegative integer")
+    if type(allow_budget_extension) is not bool:
+        raise ValueError("Budget extension flag must be boolean")
+    if allow_budget_extension and requested_limit is None:
+        raise ValueError("Budget extension requires --request-budget with a cumulative limit")
 
     # Keep authorization metadata separate from the attempt ledger so its
     # existing reporting/event schema is not changed.
     cap_path = ledger_path.with_suffix(ledger_path.suffix + ".budget.json")
     stored_limit = None
+    stored_cap = None
     if cap_path.exists():
         try:
             cap = json.loads(cap_path.read_text(encoding="utf-8"))
@@ -101,6 +108,7 @@ def restore_request_budget(
             or type(cap.get("limit")) is not int or cap["limit"] < 0):
             raise ValueError("Persistent request budget metadata is invalid or from another experiment")
         stored_limit = cap["limit"]
+        stored_cap = cap
 
     seen_starts = set()
     if ledger_path.exists():
@@ -127,11 +135,44 @@ def restore_request_budget(
         )
 
     if stored_limit is not None:
+        if prior_used > stored_limit:
+            raise ValueError("Recorded requests exceed persistent request budget; no request sent")
         if requested_limit is not None and requested_limit != stored_limit:
-            raise ValueError(
-                "Persistent request budget already set; refusing to change it. "
-                "Use a separately authorized new experiment for a new cap"
+            if requested_limit < stored_limit or not allow_budget_extension:
+                raise ValueError(
+                    "Persistent request budget already set; refusing to change it. "
+                    "To increase it, explicitly provide --extend-request-budget"
+                )
+            # The enclosing exclusive_capture lock prevents concurrent writers.
+            # Persist the increase atomically BEFORE permitting new requests.
+            # Never rewrite the attempt ledger or any existing answer capture.
+            assert stored_cap is not None
+            extensions = stored_cap.get("extensions", [])
+            if not isinstance(extensions, list):
+                raise ValueError("Corrupt budget extension history")
+            updated = {
+                **stored_cap,
+                "limit": requested_limit,
+                "extensions": [
+                    *extensions,
+                    {"from": stored_limit, "to": requested_limit,
+                     "timestamp_utc": datetime.now(timezone.utc).isoformat()},
+                ],
+            }
+            fd, temporary = tempfile.mkstemp(
+                prefix=".budget-extension-", suffix=".tmp", dir=cap_path.parent
             )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                    json.dump(updated, stream, sort_keys=True)
+                    stream.write("\n")
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary, cap_path)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
+            stored_limit = requested_limit
         total_limit, scope = stored_limit, "persistent"
     elif requested_limit is not None:
         if requested_limit < prior_used:
