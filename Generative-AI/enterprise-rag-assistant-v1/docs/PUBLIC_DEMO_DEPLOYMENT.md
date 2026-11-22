@@ -71,7 +71,8 @@ In https://dashboard.render.com/ choose
 - **Runtime**: Docker
 - **Dockerfile Path**: `Dockerfile.public-api` (relative to root directory)
 - **Instance**: Free; **1 replica/worker only**
-- **Health Check Path**: `/health`
+- **Health Check Path**: `/health` (liveness) or `/livez`
+- **Readiness Check Path**: `/readyz`
 - **Start command**: use Dockerfile default; do not override
 - **Environment variables** (set in Render, **never Git**):
   `RAG_GENERATION_PROVIDER=groq`,

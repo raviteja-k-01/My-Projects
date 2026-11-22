@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
-
+from fastapi import Response
 from src.retrieval.context_builder import ContextBuilder
 from src.generation.citation_builder import CitationBuilder
 from src.rag.answer_composer import compose_answer
@@ -54,7 +54,7 @@ def test_api_sanitizes_internal_errors(monkeypatch, exc):
     def fail(**kw): raise exc
     monkeypatch.setattr(module,"rag_pipeline",SimpleNamespace(answer=fail))
     with pytest.raises(module.HTTPException) as caught:
-        module.ask(module.AskRequest(question="Question"))
+        module.ask(module.AskRequest(question="Question"), Response())
     assert caught.value.status_code >= 500
     assert "secret" not in caught.value.detail
 

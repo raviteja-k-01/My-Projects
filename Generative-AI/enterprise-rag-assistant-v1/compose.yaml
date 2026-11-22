@@ -8,6 +8,7 @@ services:
       - .env
     environment:
       RAG_RATE_LIMIT_PER_MINUTE: ${RAG_RATE_LIMIT_PER_MINUTE:-12}
+      RAG_ALLOW_EVALUATION_TRACE: ${RAG_ALLOW_EVALUATION_TRACE:-false}
     volumes:
       - type: bind
         source: ./data/bm25
@@ -22,7 +23,7 @@ services:
         - CMD
         - python
         - -c
-        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=3).read()"
       interval: 30s
       timeout: 5s
       start_period: 90s

@@ -215,7 +215,10 @@ Answer the question using only the evidence above.
         metadata = getattr(response, "response_metadata", {}) or {}
         finish = str(metadata.get("finish_reason")).upper()
         if finish not in {"STOP", "1", "FINISH_REASON.STOP"}:
-            raise GenerationError("invalid_response", "Gemini did not return a complete answer. No answer was captured.")
+            raise GenerationError(
+                "invalid_response",
+                "Gemini did not return a complete answer. No answer was captured."
+            )
 
         if not answer:
             raise GenerationError("invalid_response", "Gemini returned an empty answer. No answer was captured.")

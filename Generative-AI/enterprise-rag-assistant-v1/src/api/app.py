@@ -3,7 +3,7 @@ import hmac
 import logging
 import os
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 from google.genai import errors as genai_errors
 from src.rag.rag_pipeline import EnterpriseRAGPipeline
@@ -17,6 +17,7 @@ from src.generation.reliability import GenerationError
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
+    evaluation_trace: bool = False
 
     @field_validator("question")
     @classmethod
@@ -48,6 +49,13 @@ logger = logging.getLogger("uvicorn.error")
 async def lifespan(app: FastAPI):
 
     global rag_pipeline
+
+    public_auth_required = os.getenv("RAG_REQUIRE_DEMO_AUTH", "").strip().lower() in {"1", "true", "yes"}
+    if public_auth_required:
+        demo_mode = os.getenv("RAG_DEMO_MODE", "").strip().lower() in {"1", "true", "yes"}
+        token = os.getenv("RAG_DEMO_API_TOKEN", "")
+        if not demo_mode or len(token) < 24:
+            raise RuntimeError("Public deployment requires demo authentication.")
 
     # Load the RAG system once when FastAPI starts
     rag_pipeline = EnterpriseRAGPipeline()
@@ -81,6 +89,27 @@ def health():
     return {
         "status": "ok"
     }
+
+
+@app.get("/livez")
+def livez():
+    return {"status": "ok"}
+
+
+@app.get("/readyz")
+def readyz():
+    if rag_pipeline is None:
+        raise HTTPException(status_code=503, detail="RAG pipeline is not ready.")
+    try:
+        bm25 = getattr(rag_pipeline.retriever, "bm25", None)
+        corpus = getattr(getattr(bm25, "retriever", None), "corpus", None)
+        if not corpus:
+            raise HTTPException(status_code=503, detail="RAG retrieval index is not ready.")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=503, detail="RAG pipeline readiness check failed.") from None
+    return {"status": "ready"}
 
 
 # --------------------------------------------------
@@ -134,7 +163,11 @@ def enforce_rate_limit(http_request: Request) -> None:
 
 
 @app.post("/ask")
-def ask(request: AskRequest, _rate_limit: None = Depends(enforce_rate_limit)):
+def ask(
+    request: AskRequest,
+    http_response: Response,
+    _rate_limit: None = Depends(enforce_rate_limit),
+):
 
     if rag_pipeline is None:
         raise HTTPException(
@@ -142,10 +175,25 @@ def ask(request: AskRequest, _rate_limit: None = Depends(enforce_rate_limit)):
             detail="RAG pipeline is not ready.",
         )
 
-    try:
-        result = rag_pipeline.answer(
-            question=request.question
+    evaluation_trace = bool(request.evaluation_trace)
+    if evaluation_trace and os.getenv("RAG_ALLOW_EVALUATION_TRACE", "").strip().lower() not in {
+        "1", "true", "yes"
+    }:
+        raise HTTPException(
+            status_code=403,
+            detail="Evaluation trace is disabled.",
         )
+
+    try:
+        if evaluation_trace:
+            result = rag_pipeline.answer(
+                question=request.question,
+                evaluation_trace=True,
+            )
+        else:
+            result = rag_pipeline.answer(
+                question=request.question,
+            )
 
         return result
     except genai_errors.ClientError as exc:
@@ -164,6 +212,18 @@ def ask(request: AskRequest, _rate_limit: None = Depends(enforce_rate_limit)):
             detail="Embedding service request failed.",
         ) from exc
     except GenerationError as exc:
+        if exc.category == "quota" and exc.code == 429:
+            if exc.retry_after_seconds is not None:
+                http_response.headers["Retry-After"] = str(max(1, int(exc.retry_after_seconds)))
+            safe_limits = (
+                ("X-Ratelimit-Remaining-Requests", exc.ratelimit_remaining_requests),
+                ("X-Ratelimit-Remaining-Tokens", exc.ratelimit_remaining_tokens),
+                ("X-Ratelimit-Reset-Requests", exc.ratelimit_reset_requests),
+                ("X-Ratelimit-Reset-Tokens", exc.ratelimit_reset_tokens),
+            )
+            for name, value in safe_limits:
+                if value:
+                    http_response.headers[name] = value[:64]
         raise HTTPException(
             status_code=502 if exc.category in {"invalid_response", "request", "authentication"} else 503,
             detail=str(exc),

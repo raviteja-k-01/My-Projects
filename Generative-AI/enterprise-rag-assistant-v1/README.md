@@ -15,10 +15,13 @@ offline checks from historical provider results and remaining release gates.
 | Embeddings | Existing `gemini-embedding-2`, 768 dimensions, unchanged |
 | Retrieval | Qdrant dense + BM25S sparse + reciprocal rank fusion |
 | RAG-120 | 80 development questions; 40 held-out questions unused for tuning |
-| Development checkpoints | 80/80 historical retrievals; 2/80 historical answers |
+| Development checkpoints | 80/80 retrievals; 80/80 verified Groq answers; 2 legacy Gemini answers |
 | New configuration smoke test | 1/80 answers in a separate experiment; first attempt succeeded in 22.9 s |
 | Human answer review | 0 completed; no semantic accuracy scores assigned |
-| Offline tests | 229 passed in WSL on 2026-11-19; answer quality unverified |
+| Offline tests | 337 passed in Linux Docker on 2026-11-22; answer quality unverified |
+| Docker smoke test | API and UI images built; API `/readyz`, `/health`, and UI HTTP 200 verified |
+| Answer review | 80 Groq answers mechanically validated; 0 human-reviewed |
+| Retrieval coverage | 72/72 answerable development questions matched expected document and page; 8/8 unanswerable questions had no expected evidence |
 | Evidence comparison | 73/101 source anchors before and after; no per-question regression |
 | Docker | Local images build; live provider and public deployment are separate gates |
 
@@ -39,6 +42,9 @@ never counts it as hybrid retrieval. Zero-score BM25 matches are excluded.
 Deduplication preserves differing amounts, conditions and negations. Empty
 evidence returns a deterministic abstention. Nonempty-evidence grounding and
 abstention still need real-model evaluation and independent review.
+For control queries that explicitly name a policy, metadata/table chunks for
+that policy are stably prioritized without changing the underlying retrieval
+ranking or using evaluation labels.
 
 ## Local setup
 
@@ -67,6 +73,8 @@ See [local Docker Compose](docs/LOCAL_CONTAINERS.md) and
 `/health` checks process startup, not provider availability. Real questions use
 provider requests. Public hosting would need authentication, HTTPS and suitable
 shared controls; the current rate limiter/cache are process-local.
+`/livez` is process liveness and `/readyz` verifies that the initialized pipeline
+and local BM25 index are ready; `/readyz` is the Docker healthcheck target.
 
 ## Generation configuration
 
@@ -90,6 +98,38 @@ makes one attempt. Optional application retries use bounded exponential
 backoff with jitter for transient server/transport failures. Quota/authentication
 failures stop immediately. Credentials never rotate automatically. Incomplete,
 blocked or empty responses are rejected. Public errors omit raw provider details.
+
+## Live 120-question evaluation automation
+
+The live runner calls FastAPI `/ask` directly, saves each completed response
+immediately, and resumes without repeating captured question IDs. It never sends
+benchmark reference answers or expected facts to the RAG generation request.
+Live calls are preview-only unless `--confirm-live` and `--request-budget` are
+both supplied.
+
+```bash
+# Offline workbook/status preview: no API, embedding or generation calls
+python -m scripts.run_live_evaluation --max-new 0
+
+# Development: explicit authorization and a cumulative request budget
+python -m scripts.run_live_evaluation --split dev --max-new 10 \
+  --confirm-live --request-budget 10
+
+# Repeat in bounded batches; completed IDs are skipped
+python -m scripts.run_live_evaluation --split dev --max-new 10 \
+  --confirm-live --request-budget 80
+
+# Freeze development only after 80 actual API captures
+python -m scripts.run_live_evaluation --split dev --freeze-dev
+
+# Held-out test is blocked until the development freeze exists
+python -m scripts.run_live_evaluation --split test --unlock-test \
+  --max-new 10 --confirm-live --request-budget 10
+```
+
+Set `RAG_ALLOW_EVALUATION_TRACE=true` only on an authorized evaluation API
+instance. Human, AI-judge and citation metrics are kept separate; a completed
+human review is required before official quality scores are populated.
 
 ## Reproducible development evaluation
 

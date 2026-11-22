@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import re
 from typing import Any
 
 import requests
@@ -19,6 +20,25 @@ GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 TRANSIENT_PRIMARY_CATEGORIES = frozenset(
     {"unavailable", "timeout", "server", "transport", "quota"}
 )
+
+
+def _retry_after_seconds(response: requests.Response) -> float | None:
+    value = response.headers.get("retry-after")
+    if not value:
+        return None
+    value = value.strip()
+    if re.fullmatch(r"\d+(?:\.\d+)?", value):
+        seconds = float(value)
+        return seconds if 0 <= seconds <= 86400 else None
+    return None
+
+
+def _header_value(headers: requests.structures.CaseInsensitiveDict, *names: str) -> str | None:
+    for name in names:
+        value = headers.get(name)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 class GroqAnswerGenerator:
@@ -79,8 +99,16 @@ class GroqAnswerGenerator:
                 "unavailable" if code in (500, 502, 503, 504) else
                 "request"
             )
+            headers = response.headers
             raise GenerationError(
-                category, f"Groq fallback failed (HTTP {code}). No answer was generated.", code=code
+                category,
+                f"Groq fallback failed (HTTP {code}). No answer was generated.",
+                code=code,
+                retry_after_seconds=_retry_after_seconds(response),
+                ratelimit_remaining_requests=_header_value(headers, "x-ratelimit-remaining-requests"),
+                ratelimit_remaining_tokens=_header_value(headers, "x-ratelimit-remaining-tokens"),
+                ratelimit_reset_requests=_header_value(headers, "x-ratelimit-reset-requests"),
+                ratelimit_reset_tokens=_header_value(headers, "x-ratelimit-reset-tokens"),
             )
         try:
             data = response.json()

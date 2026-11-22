@@ -25,6 +25,13 @@ class PreflightError(ValueError):
 
 def validate_config(environ: Mapping[str, str]) -> None:
     """Validate required ENV names without exposing secret contents."""
+    public_auth_required = environ.get("RAG_REQUIRE_DEMO_AUTH", "").strip().lower() in {"1", "true", "yes"}
+    if public_auth_required:
+        if environ.get("RAG_DEMO_MODE", "").strip().lower() not in {"1", "true", "yes"}:
+            raise PreflightError("Public deployment requires RAG_DEMO_MODE")
+        if len(environ.get("RAG_DEMO_API_TOKEN", "")) < 24:
+            raise PreflightError("Public deployment requires RAG_DEMO_API_TOKEN with at least 24 characters")
+
     provider = environ.get("RAG_GENERATION_PROVIDER", "gemini").strip().lower()
     if provider not in {"gemini", "groq"}:
         raise PreflightError("RAG_GENERATION_PROVIDER must be gemini or groq")

@@ -13,6 +13,40 @@ from src.generation.citation_builder import CitationBuilder
 from src.retrieval.context_builder import ContextBuilder
 
 
+def _prioritize_document_control_tables(
+    question: str,
+    candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Prioritize metadata tables for explicitly named policies."""
+    normalized = question.casefold()
+    control_terms = ("owns", "owner", "approv", "effective", "version", "take effect")
+    if not any(term in normalized for term in control_terms):
+        return candidates
+
+    named_documents = {
+        document_id
+        for candidate in candidates
+        for document_id in [((candidate.get("chunk") or {}).get("document_id"))]
+        if isinstance(document_id, str)
+        and document_id
+        and document_id.casefold() in normalized
+    }
+    if not named_documents:
+        return candidates
+
+    def is_named_document_table(candidate: dict[str, Any]) -> bool:
+        chunk = candidate.get("chunk") or {}
+        return (
+            chunk.get("document_id") in named_documents
+            and "-TABLE-" in str(chunk.get("chunk_id", ""))
+        )
+
+    return sorted(
+        candidates,
+        key=lambda candidate: not is_named_document_table(candidate),
+    )
+
+
 INSUFFICIENT_EVIDENCE_ANSWER = (
     "There is insufficient evidence in the available policy documents to answer this question."
 )
@@ -50,7 +84,8 @@ def compose_answer(
     begin = time.perf_counter() if total_start is None else total_start
     # The builder enforces the eight-evidence cap. Let it refill skipped duplicate
     # or oversized chunks from the rest of the retrieved ranking.
-    context_result = context_builder.build(candidates=candidates)
+    context_candidates = _prioritize_document_control_tables(question, candidates)
+    context_result = context_builder.build(candidates=context_candidates)
     if context_result["context"]:
         generation_start = time.perf_counter()
         generated = generator.generate(question=question, context=context_result["context"])
@@ -91,7 +126,12 @@ def compose_answer(
     }
     if evaluation_trace:
         response["evaluation_trace"] = {
-            "retrieved_chunk_ids": [item["chunk_id"] for item in candidates],
+            "retrieved_chunk_ids": [
+                str((item.get("chunk") or {}).get("chunk_id")
+                    or item.get("chunk_id")
+                    or "")
+                for item in candidates
+            ],
             "selected_evidence": context_result["evidence"],
         }
     return response

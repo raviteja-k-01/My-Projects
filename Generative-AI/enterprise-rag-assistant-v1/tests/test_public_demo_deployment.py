@@ -102,3 +102,20 @@ def test_public_preflight_rejects_missing_or_weak_token():
     env["RAG_RATE_LIMIT_PER_MINUTE"] = "12"
     with pytest.raises(PreflightError, match="at most 3"):
         validate_config(env)
+
+
+def test_public_require_auth_flag_rejects_missing_demo_mode():
+    env = {"RAG_REQUIRE_DEMO_AUTH": "1", "RAG_DEMO_API_TOKEN": "valid-demo-token-of-at-least-24-chars"}
+    with pytest.raises(PreflightError, match="RAG_DEMO_MODE"):
+        validate_config(env)
+
+
+def test_public_require_auth_flag_rejects_missing_token():
+    env = {"RAG_REQUIRE_DEMO_AUTH": "1", "RAG_DEMO_MODE": "1"}
+    with pytest.raises(PreflightError, match="RAG_DEMO_API_TOKEN"):
+        validate_config(env)
+
+
+def test_public_dockerfile_requires_auth_at_startup():
+    dockerfile = Path("Dockerfile.public-api").read_text(encoding="utf-8")
+    assert "RAG_REQUIRE_DEMO_AUTH=1" in dockerfile
