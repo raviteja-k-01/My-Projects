@@ -1,0 +1,10 @@
+# Only live API packages; no Streamlit, pytest or PDF parsing on the server.
+google-genai==2.34.0
+qdrant-client==1.20.0
+bm25s==0.3.16
+python-dotenv==1.2.4
+langchain-google-genai==4.3.2
+fastapi==0.164.0
+uvicorn==0.54.0
+requests==2.34.2
+httpx==0.28.1
