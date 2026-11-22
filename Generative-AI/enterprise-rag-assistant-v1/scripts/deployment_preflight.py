@@ -45,6 +45,12 @@ def validate_config(environ: Mapping[str, str]) -> None:
         if generation_key == "GEMINI_API_KEY":
             required += ("GEMINI_API_KEY",)
 
+    if environ.get("RAG_DEMO_MODE", "").strip().lower() in {"1", "true", "yes"}:
+        required += ("RAG_DEMO_API_TOKEN",)
+        if len(environ.get("RAG_DEMO_API_TOKEN", "")) < 24:
+            raise PreflightError("RAG_DEMO_API_TOKEN must have at least 24 characters")
+        if int(environ.get("RAG_RATE_LIMIT_PER_MINUTE", "12")) > 3:
+            raise PreflightError("Public demo must limit requests per minute to at most 3")
     missing = [key for key in dict.fromkeys(required) if not environ.get(key, "").strip()]
     if missing:
         raise PreflightError("Missing required environment variables: " + ", ".join(missing))
