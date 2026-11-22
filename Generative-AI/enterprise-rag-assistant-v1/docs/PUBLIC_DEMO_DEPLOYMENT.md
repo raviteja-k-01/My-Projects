@@ -62,7 +62,7 @@ The Release must stay available for every free-host boot.
 
 ## Step B — Deploy API to Render
 
-In urlRenderhttps://dashboard.render.com/, choose
+In https://dashboard.render.com/ choose
 **New → Web Service → Git repository: `raviteja-k-01/My-Projects`**.
 
 - **Root Directory**: `Generative-AI/enterprise-rag-assistant-v1`
@@ -98,7 +98,7 @@ startup, not real question answering.
 
 ## Step C — Deploy UI to Streamlit Community Cloud
 
-In urlStreamlit Community Cloudhttps://share.streamlit.io/,
+In https://share.streamlit.io/,
 create an app from the same GitHub repository, branch `main`.
 
 - **Entry point**: `Generative-AI/enterprise-rag-assistant-v1/src/ui/app.py`
