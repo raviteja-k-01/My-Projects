@@ -122,6 +122,15 @@ Human annotations distinguish required facts from optional background and assess
 claims, citations, unsupported statements and abstention. Missing reviews produce
 null quality metrics. Assistant/model judgments must not be labeled human reviews.
 
+## Public portfolio demo (optional, free tiers have limits)
+
+For a split deployment (Render Free FastAPI + Streamlit Community Cloud UI +
+existing Qdrant Cloud), see [public demo setup](docs/PUBLIC_DEMO_DEPLOYMENT.md).
+It includes the existing BM25 artifact packaging/verification, server-side
+shared token, one-instance request caps, and manual live checks. **Not
+deployed or load-tested yet.** Free hosting/LLM quotas can still cause cold
+starts, request failures or downtime; it is not an unlimited service.
+
 ## Remaining release gates
 
 - Authorize broader development evaluation; one generation-only smoke test has passed.
