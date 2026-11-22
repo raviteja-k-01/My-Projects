@@ -42,7 +42,7 @@ if submitted:
                 json={"question": clean_question},
                 headers=({"X-RAG-Demo-Token": os.environ["RAG_DEMO_API_TOKEN"]}
                          if os.getenv("RAG_DEMO_API_TOKEN") else {}),
-                timeout=(10, 180),
+                timeout=(10, 300),
             )
         except requests.RequestException:
             st.error("The RAG backend is unreachable. Try again later.")
