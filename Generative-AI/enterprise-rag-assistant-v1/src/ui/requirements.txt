@@ -1,0 +1,4 @@
+# Streamlit Community Cloud reads nearest requirements to entrypoint.
+streamlit==1.67.0
+requests==2.34.2
+python-dotenv==1.2.4
