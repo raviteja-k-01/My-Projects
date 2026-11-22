@@ -1,0 +1,19 @@
+# Public *demo* backend; source corpus/index supplied by hash-locked HTTPS
+# archive at startup. No secrets, local artifacts or evaluation files in image.
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /app
+COPY requirements-cloud-api.txt /app/requirements-cloud-api.txt
+RUN python -m pip install --no-cache-dir -r /app/requirements-cloud-api.txt \
+    && groupadd --gid 10001 rag \
+    && useradd --uid 10001 --gid 10001 --create-home rag \
+    && mkdir /app/data \
+    && chown -R rag:rag /app/data
+COPY --chown=rag:rag src/ /app/src/
+COPY --chown=rag:rag scripts/deployment_preflight.py scripts/cloud_bm25_install.py /app/scripts/
+USER rag
+ENV PORT=10000
+EXPOSE 10000
+CMD ["sh", "-c", "python -m scripts.cloud_bm25_install && python -m scripts.deployment_preflight --expect-chunks 1985 && exec python -m uvicorn src.api.app:app --host 0.0.0.0 --port ${PORT:-10000}"]
