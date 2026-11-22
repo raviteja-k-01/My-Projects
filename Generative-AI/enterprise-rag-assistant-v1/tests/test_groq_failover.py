@@ -91,7 +91,11 @@ def test_groq_receives_same_question_evidence_and_prompt(monkeypatch):
 def test_groq_statuses_are_sanitized(monkeypatch, status, category):
     monkeypatch.setenv("GROQ_API_KEY", "secret")
     monkeypatch.setattr("src.generation.failover_generator.requests.post", lambda *a, **k:
-                        SimpleNamespace(status_code=status, text="secret-details"))
+                        SimpleNamespace(
+    status_code=status,
+    text="secret-details",
+    headers={}
+))
     with pytest.raises(GenerationError) as exc:
         GroqAnswerGenerator(system_prompt="Ground responses").generate("q", "e")
     assert exc.value.category == category

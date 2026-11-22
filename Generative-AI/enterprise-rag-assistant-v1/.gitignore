@@ -8,4 +8,6 @@ data/bm25/
 data/qdrant/
 data/qdrant_validation/
 
-scripts/_scratch/
+scripts/_scratch/RAG_*.xlsx
+~$*.xlsx
+.pytest_cache/

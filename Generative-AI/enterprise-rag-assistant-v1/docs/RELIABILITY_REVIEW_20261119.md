@@ -1,5 +1,10 @@
 # Reliability review — 2026-11-19
 
+**2026-11-22 reconciliation:** The verified Groq development checkpoint
+contains 80/80 answers. The 2/80 result refers only to the separate legacy
+Gemini checkpoint. The Groq checkpoint is not a human-reviewed quality result:
+its review forms remain uncompleted and all quality metrics remain null.
+
 This continuation starts at commit `944e41e` with a clean working tree.
 The freshly executed offline baseline is **166 passed (21.32 s)** in the
 existing WSL Python environment. Historical results are not new measurements.

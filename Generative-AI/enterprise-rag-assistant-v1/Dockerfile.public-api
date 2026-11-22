@@ -5,6 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
+ENV RAG_REQUIRE_DEMO_AUTH=1
 COPY requirements-cloud-api.txt /app/requirements-cloud-api.txt
 RUN python -m pip install --no-cache-dir -r /app/requirements-cloud-api.txt \
     && groupadd --gid 10001 rag \

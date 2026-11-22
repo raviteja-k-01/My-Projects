@@ -15,10 +15,26 @@ TRANSPORT_ERRORS = (httpx.TransportError,) + ((httpx2.TransportError,) if httpx2
 
 
 class GenerationError(RuntimeError):
-    def __init__(self, category: str, message: str, *, code: int | None = None) -> None:
+    def __init__(
+        self,
+        category: str,
+        message: str,
+        *,
+        code: int | None = None,
+        retry_after_seconds: float | None = None,
+        ratelimit_remaining_requests: str | None = None,
+        ratelimit_remaining_tokens: str | None = None,
+        ratelimit_reset_requests: str | None = None,
+        ratelimit_reset_tokens: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.category = category
         self.code = code
+        self.retry_after_seconds = retry_after_seconds
+        self.ratelimit_remaining_requests = ratelimit_remaining_requests
+        self.ratelimit_remaining_tokens = ratelimit_remaining_tokens
+        self.ratelimit_reset_requests = ratelimit_reset_requests
+        self.ratelimit_reset_tokens = ratelimit_reset_tokens
 
 
 @dataclass

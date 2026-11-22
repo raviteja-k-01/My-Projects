@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
-
+import pytest
+from fastapi import Response
 import src.api.app as app_module
 
 
@@ -30,6 +31,25 @@ def test_health_endpoint(monkeypatch):
     }
 
 
+def test_livez_and_readyz_distinguish_process_and_pipeline(monkeypatch):
+    monkeypatch.setattr(app_module, "EnterpriseRAGPipeline", FakePipeline)
+    with TestClient(app_module.app) as client:
+        live_response = client.get("/livez")
+        ready_response = client.get("/readyz")
+    assert live_response.status_code == 200
+    assert live_response.json() == {"status": "ok"}
+    assert ready_response.status_code == 503
+
+
+def test_public_startup_requires_auth(monkeypatch):
+    monkeypatch.setenv("RAG_REQUIRE_DEMO_AUTH", "1")
+    monkeypatch.delenv("RAG_DEMO_MODE", raising=False)
+    monkeypatch.delenv("RAG_DEMO_API_TOKEN", raising=False)
+    with pytest.raises(RuntimeError, match="requires demo authentication"):
+        with TestClient(app_module.app):
+            pass
+
+
 def test_ask_endpoint_returns_answer(monkeypatch):
     monkeypatch.setattr(
         app_module,
@@ -55,6 +75,38 @@ def test_ask_endpoint_returns_answer(monkeypatch):
     )
 
     assert data["citations"] == []
+
+
+def test_evaluation_trace_is_opt_in(monkeypatch):
+    class TracePipeline:
+        def answer(self, question: str, evaluation_trace: bool = False):
+            assert evaluation_trace is True
+            return {"answer": "trace-test", "citations": [], "evaluation_trace": {
+                "retrieved_chunk_ids": ["C001"],
+                "selected_evidence": [],
+            }}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(app_module, "EnterpriseRAGPipeline", TracePipeline)
+    monkeypatch.setenv("RAG_ALLOW_EVALUATION_TRACE", "1")
+    with TestClient(app_module.app) as client:
+        enabled = client.post(
+            "/ask",
+            json={"question": "What is policy?", "evaluation_trace": True},
+        )
+    assert enabled.status_code == 200
+    assert enabled.json()["evaluation_trace"]["retrieved_chunk_ids"] == ["C001"]
+
+    monkeypatch.delenv("RAG_ALLOW_EVALUATION_TRACE", raising=False)
+    with TestClient(app_module.app) as client:
+        disabled = client.post(
+            "/ask",
+            json={"question": "What is policy?", "evaluation_trace": True},
+        )
+    assert disabled.status_code == 403
+    assert disabled.json()["detail"] == "Evaluation trace is disabled."
 
 
 def test_ask_rejects_missing_question(monkeypatch):
@@ -84,7 +136,7 @@ def test_ask_returns_503_when_pipeline_not_ready():
         )
 
         try:
-            app_module.ask(request)
+            app_module.ask(request,Response())
             assert False, "Expected HTTPException"
 
         except app_module.HTTPException as exc:
@@ -115,7 +167,7 @@ def test_ask_converts_runtime_error_to_503():
         )
 
         try:
-            app_module.ask(request)
+            app_module.ask(request,Response())
             assert False, "Expected HTTPException"
 
         except app_module.HTTPException as exc:

@@ -1,5 +1,12 @@
 # Engineering audit and execution record — 2026-11-19
 
+**2026-11-22 reconciliation:** `benchmark120_answers_dev_groq.jsonl` is the
+verified 80/80 development Groq answer checkpoint. The older
+`benchmark120_answers_dev.jsonl` remains a separate 2-answer Gemini experiment.
+The Groq checkpoint has 182 mechanically valid citation mappings; 11 answers
+contain no citation metadata and state insufficient evidence. No human quality
+review is recorded for the Groq or Gemini answers.
+
 This is an evidence record, not a claim of release readiness.
 
 **Current continuation:** [2026-11-19 reliability review](RELIABILITY_REVIEW_20261119.md).
