@@ -34,8 +34,10 @@ is an unlimited free production SLA.
    organization dashboard before usage). A **single** request can also fail.
 3. Gemini embedding quota may independently be exhausted. Application
    uses BM25 fallback for embedding 429/5xx, but it is not equivalent quality.
-4. Qdrant Cloud free tier: 1 GB RAM / 4 GB disk, single node. The existing
-   collection's **actual** cloud endpoint/count must be checked first.
+4. Qdrant Cloud free tier: 1 GB RAM / 4 GB disk, single node. Its free
+   cluster is suspended after **1 week of inactivity** and deleted after
+   **4 weeks of inactivity** if not reactivated. The existing collection's
+   actual endpoint/count must be checked; preserve a verified backup.
 5. Public demo endpoints have **server-to-server token authentication** and
    process-local rolling global hourly/daily limits. These **reset after
    free-host restart and are not a strict billing or provider-quota guarantee**.
