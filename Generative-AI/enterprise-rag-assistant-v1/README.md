@@ -1,106 +1,132 @@
-# Enterprise RAG Assistant
+# Enterprise Workplace Policy Assistant (RAG)
 
-A question-answering app for a library of **12 fictional workplace policy PDFs**. Ask about access, security, HR, or workplace procedures, and the assistant searches the documents before answering with source references.
+**[Live demo](https://enterprise-rag-assistant-v1.pages.dev/)** · **[Source code](https://github.com/raviteja-k-01/My-Projects/tree/main/Generative-AI/enterprise-rag-assistant-v1)**
 
-I built this project to work on a practical RAG problem: finding the right evidence, keeping answers tied to that evidence, and being clear about what the system **hasn't** proved yet. It is a portfolio project, not a real company's policy service.
+A retrieval-augmented question-answering assistant for **12 fictional workplace policy PDFs**. It searches policy text and tables, generates answers grounded in retrieved passages, and displays source citations. The project demonstrates document ingestion, hybrid retrieval, answer validation, evaluation workflows, and serverless deployment.
 
-## What it does
+> **Portfolio project:** The policies and organization are fictional. Do not use its answers for real HR, security, legal, or compliance decisions.
 
-1. **Finds relevant passages.** The documents were processed into 1,985 text and table chunks. Dense search in Qdrant and keyword search with BM25S run together.
-2. **Combines the results.** Reciprocal rank fusion (RRF) brings both searches into one ranking. The answer pipeline selects up to eight evidence passages.
-3. **Writes an answer.** Groq or Gemini can generate the response using the selected evidence. Gemini embeddings are used for dense retrieval even when Groq generates the answer.
-4. **Shows its sources.** FastAPI checks citation references and returns the answer to a Streamlit interface, where the user can inspect the cited evidence.
+## At a glance
 
-If there is no usable evidence, the assistant can decline to answer. A valid citation reference is **not** proof that every generated claim is correct; that still needs independent review.
-
-### Main components
-
-| Part | Technology |
+| Component | Implementation |
 | --- | --- |
-| Web interface | Streamlit |
-| API | FastAPI |
-| Dense retrieval | Gemini embeddings (768 dimensions) + Qdrant |
-| Keyword retrieval | BM25S |
-| Combining results | Reciprocal rank fusion |
-| Answer generation | Groq or Gemini, configurable |
-| Tests and evaluation | pytest, saved retrieval/answer checkpoints, human-review forms |
+| Corpus | 12 synthetic PDFs; **1,985 chunks** (1,766 text/body + 219 table) |
+| Embeddings | Gemini `gemini-embedding-2`, 768-dimensional vectors |
+| Retrieval | Semantic vector search + keyword/full-text search |
+| Answer generation | Groq `openai/gpt-oss-120b` in the public demo |
+| Public frontend / API | Cloudflare Pages + Workers |
+| Public retrieval storage | Cloudflare Vectorize (dense) + D1 FTS5 (keyword and source lookup) |
+| Access protection | Cloudflare Turnstile and bounded question sessions |
+| Original Python implementation | FastAPI, Streamlit, Qdrant, BM25S, reciprocal rank fusion (RRF) |
+| Local validation | Pytest and Docker Compose |
 
-## Run it locally
+## Live application architecture
 
-**Requirements:** Python 3.11+, access to the existing Qdrant collection, the matching local BM25 index, and your own authorized API credentials.
+```text
+Browser (Cloudflare Pages)
+          |
+          v
+   Cloudflare Worker
+          |
+          +--> Gemini query embedding
+          |          |
+          |          v
+          |     Vectorize search -----+
+          |                           |
+          +--> D1 FTS5 search --------+--> Retrieved policy evidence
+          |                                        |
+          +--> D1 source lookup                    v
+          |                                 Groq answer generation
+          |                                        |
+          +<--------- Answer + source citations ---+
+```
 
-Clone the monorepo and enter this project:
+The deployed assistant uses **hybrid retrieval**: vector similarity finds semantically related passages, while D1 full-text search finds keyword matches. Retrieved policy passages are supplied as evidence to the answer generator. The interface shows source-linked citations rather than a raw chunk dump.
+
+For insufficient evidence, invalid citations, or upstream model failures, the application uses constrained fallback/error responses instead of inventing source references. Citation-reference validation checks that citations point to supplied evidence; **it does not prove that every statement is factually supported**.
+
+### Why both Qdrant and Vectorize?
+
+They belong to **different stages of the same project**, not two vector databases serving one request.
+
+| Stage | Dense retrieval | Keyword retrieval | Application |
+| --- | --- | --- | --- |
+| Original local development | Qdrant | BM25S | FastAPI + Streamlit |
+| Public Cloudflare deployment | Vectorize | D1 FTS5 | Workers + Pages |
+
+The original Python pipeline combines Qdrant and BM25S results with **RRF**. For the serverless deployment, the existing 1,985 Gemini document vectors were migrated to Vectorize; their corresponding text and metadata were loaded into D1. **The public demo does not query Qdrant.**
+
+## Evaluation and observed results
+
+The **RAG-120** evaluation set has **80 development questions** and **40 held-out questions**. The held-out split was kept separate from development analysis.
+
+| Check | Recorded result | What it establishes |
+| --- | --- | --- |
+| Development retrieval checkpoints | **80 / 80** | Saved rankings exist for all development questions |
+| Saved Groq development answers | **80 / 80** | Answer records and mechanical citation-reference validation completed |
+| Provisional source-anchor Hit@5 | **53 / 72 = 73.6%** | Source-text anchor diagnostic on answerable development questions; **not independently verified retrieval accuracy** |
+| Human factual/faithfulness reviews | **0 completed** | No defensible factual accuracy or faithfulness percentage yet |
+| Python automated tests | **345 passed** | Latest recorded local test run (November 22, 2026) |
+| Cloudflare Worker tests | **26 passed** | Latest recorded Worker test run |
+| Public-demo query latency | **3.25 s** | One observed end-to-end policy-query response; **not an average** |
+
+The saved development answers and retrieval checkpoints were evaluated against the **original Python implementation**. They are not a separate 80-query performance benchmark of the Cloudflare deployment. Mechanical citation validity is not the same as claim-level citation correctness or answer faithfulness.
+
+See [RAG-120 evaluation methodology](docs/BENCHMARK_120.md), [answer replay/review](docs/BENCHMARK_120_ANSWER_REPLAY.md), and the [engineering reliability review](docs/RELIABILITY_REVIEW_20261119.md).
+
+## Repository scope
+
+This directory contains the **original Python RAG application**, ingestion and retrieval code, evaluation scripts, tests, Docker configuration, and engineering documentation:
+
+| Path | Contents |
+| --- | --- |
+| `src/ingestion/` | PDF parsing and deterministic text/table chunking |
+| `src/indexing/` and `src/retrieval/` | Embeddings, Qdrant/BM25S retrieval, fusion |
+| `src/rag/` and `src/generation/` | Evidence selection, generation, citation checks |
+| `src/api/` and `src/ui/` | Local FastAPI and Streamlit application |
+| `src/evaluation/`, `scripts/`, `tests/` | Benchmark utilities, reproducibility checks, tests |
+| `compose.yaml`, `Dockerfile.api`, `Dockerfile.ui` | Local containerized setup |
+
+**Source availability:** The live Cloudflare Worker is deployed separately; its runtime source is **not yet committed to this repository**. The local Python code in this directory is not the source used by the public Cloudflare endpoint. The links under `docs/` chiefly describe the local implementation and its historical experiments.
+
+## Run the original Python version locally
+
+**Prerequisites:** Python 3.11+, your own authorized API credentials, the matching **1,985-chunk BM25S artifacts**, and access to the corresponding Qdrant collection. Generated indexes, vector backups, evaluation captures, and credentials are not bundled in Git. A fresh clone alone cannot run the full pipeline.
 
 ```bash
 git clone https://github.com/raviteja-k-01/My-Projects.git
 cd My-Projects/Generative-AI/enterprise-rag-assistant-v1
+
 python -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-cp .env.example .env
+source .venv/bin/activate    # Windows PowerShell: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+cp .env.example .env         # Windows PowerShell: Copy-Item .env.example .env
 ```
 
-Edit `.env` locally. At minimum, configure `GEMINI_API_KEY` (for query embeddings), `QDRANT_URL`, and `QDRANT_API_KEY`. To generate answers with Groq, also set `RAG_GENERATION_PROVIDER=groq` and `GROQ_API_KEY`. The default generation provider is Gemini.
+In the local, gitignored `.env`, configure `GEMINI_API_KEY`, `QDRANT_URL`, and `QDRANT_API_KEY`. For Groq answer generation, also configure `GROQ_API_KEY` and `RAG_GENERATION_PROVIDER=groq`. See [provider selection and optional failover](docs/GROQ_FAILOVER.md).
 
-**A fresh clone is not enough to start the full assistant.** Generated artifacts such as `data/bm25/` and evaluation checkpoints are not included in Git. Use the BM25 artifacts that match the existing 1,985-point Qdrant collection; don't rebuild or replace an index just to get past startup.
-
-Check local configuration and the BM25 index without calling any model or cloud service:
+After restoring the **matching** BM25S artifacts, run a read-only preflight:
 
 ```bash
 python -m scripts.deployment_preflight --expect-chunks 1985
 ```
 
-Start the API:
+Then start the two local services in separate terminals:
 
 ```bash
 python -m uvicorn src.api.app:app --host 127.0.0.1 --port 8000
 ```
 
-In a second terminal, with the same Python environment active, start the interface:
-
 ```bash
 python -m streamlit run src/ui/app.py
 ```
 
-Open `http://localhost:8501`. You can check API process health at `http://127.0.0.1:8000/health`. A successful health check does **not** verify that Qdrant or a model provider will answer a real question. Live questions use external APIs and may consume quota.
+Open `http://localhost:8501`. Local Docker Compose instructions are in [LOCAL_CONTAINERS.md](docs/LOCAL_CONTAINERS.md). **Docker is used for local validation; Cloudflare serves the public demo.**
 
-Prefer containers? See the [local Docker Compose guide](docs/LOCAL_CONTAINERS.md).
+## Limitations and security
 
-## Testing and evaluation
-
-The focus is not just whether the app returns an answer, but whether its retrieved evidence and citations can be checked.
-
-- **Corpus:** 12 fictional PDFs, split into **1,766 body chunks** and **219 table chunks** (1,985 total).
-- **RAG-120 benchmark:** 80 development questions and 40 held-out questions, kept separate to avoid tuning against the test set.
-- **Saved development runs:** 80 retrieval checkpoints and 80 Groq-generated answer records have been mechanically validated. **None of those answers has a completed human factual review.**
-- **Automated tests:** **345 passed** in the local WSL environment on **November 22, 2026**.
-
-These results verify code behavior and saved artifact consistency; they do **not** establish a trustworthy answer-accuracy percentage, human-judged grounding score, or live-service uptime. Retrieval relevance and generated claims still need independent review. Earlier 30-question experiments are separate from RAG-120.
-
-For the full methodology and limitations, read the [benchmark guide](docs/BENCHMARK_120.md), [answer replay and review process](docs/BENCHMARK_120_ANSWER_REPLAY.md), and [engineering reliability review](docs/RELIABILITY_REVIEW_20261119.md).
-
-## Deployment status
-
-The planned portfolio setup is a **Render FastAPI backend**, **Streamlit Community Cloud frontend**, and the existing **Qdrant Cloud** collection. The backend needs the approved BM25 archive at startup. Free hosting and model quotas can cause slow starts or failed requests.
-
-**The public demo has not yet been deployed and verified end to end.** A passing local test suite is not a public deployment.
-
-See [public demo deployment instructions](docs/PUBLIC_DEMO_DEPLOYMENT.md) for the actual setup and safety checks. Keep `RAG_ALLOW_EVALUATION_TRACE=false` on a public instance.
-
-## Repository map
-
-| Path | Purpose |
-| --- | --- |
-| `src/ingestion/` | PDF reading, parsing, and chunking |
-| `src/retrieval/` and `src/indexing/` | Search, fusion, and indexes |
-| `src/rag/` and `src/generation/` | Evidence selection, answers, and citations |
-| `src/api/` and `src/ui/` | FastAPI backend and Streamlit frontend |
-| `src/evaluation/` and `scripts/` | Evaluation, validation, and maintenance utilities |
-| `tests/` | Automated checks |
-| `docs/` | Detailed engineering and deployment notes |
-
-## Boundaries
-
-The PDFs are invented examples, not real workplace policies. The assistant can still miss evidence, misread a condition, or produce a plausible but unsupported statement. Don't rely on it for real HR, security, legal, or compliance decisions.
-
-Never commit `.env`, API keys, private checkpoints, vector backups, or generated evaluation reports. Don't publish an index archive without checking and approving its contents.
+- The corpus is synthetic; this is **not** an operational policy-advice service.
+- Retrieved passages can be incomplete or irrelevant, and a syntactically valid citation can still accompany an unsupported claim. Human answer-quality review is unfinished.
+- The 73.6% source-anchor diagnostic is **provisional**; no verified Recall@K, MRR, faithfulness score, or production average latency is claimed.
+- API quotas and provider availability can affect live responses. Neither a health check nor passing offline tests guarantees live answer quality.
+- Never commit `.env` files, API keys, corpus/vector backups, private evaluation checkpoints, or sensitive deployment settings.
