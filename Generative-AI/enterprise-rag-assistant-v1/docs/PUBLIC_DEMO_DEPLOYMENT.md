@@ -1,5 +1,15 @@
 # Public portfolio demo deployment — FREE TIER, LIMITS APPLY
 
+> [!CAUTION]
+> **NOT THE CHOSEN PLAN — historical Render + Streamlit proposal.** Do not follow the deployment instructions on this page.
+>
+> **Agreed target (November 21, 2026):** gated, free-tier, always-on **Cloudflare** deployment. One Worker serves UI and API; Vectorize reuses the existing 768-dimensional Gemini vectors without re-embedding; D1 FTS5 handles keyword search; Gemini provides query embeddings; Groq generates answers with fallbacks; AI Gateway and Turnstile protect the service. Use FastAPI only if it meets the **10 ms Worker CPU gate**; otherwise use a TypeScript Worker. On embedding failure, fall back to D1 keyword-only search. On generation failure, show sources explicitly labeled **unverified**. Preserve the current application as the baseline.
+>
+> **Status:** Gate 0 complete; Gate 1 in progress. Vectorize Free availability was reported by a Cloudflare dashboard assistant but **has not been verified by provisioning**. No Cloudflare resources have been created. Free tiers have limits and cannot guarantee uninterrupted service.
+>
+> **This page is retained as an unselected alternative, not a deployment checklist.**
+
+
 **Not an unlimited or production-ready service.** A free public URL can be
 provided for a personal demo, but we cannot guarantee uptime, latency, or
 unlimited Gemini/Groq requests. Neither Render nor Streamlit Community Cloud
