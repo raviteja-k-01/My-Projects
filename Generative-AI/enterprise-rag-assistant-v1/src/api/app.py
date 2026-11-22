@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import hmac
 import logging
 import os
 
@@ -32,6 +33,14 @@ class AskRequest(BaseModel):
 
 rag_pipeline: EnterpriseRAGPipeline | None = None
 rate_limiter = SlidingWindowRateLimiter(limit=int(os.getenv("RAG_RATE_LIMIT_PER_MINUTE", "12")))
+# Public demo limits are process-local safeguards, NOT provider quota guarantees.
+# A single replica prevents per-process policy from being multiplied by workers.
+demo_hourly_limiter = SlidingWindowRateLimiter(
+    limit=int(os.getenv("RAG_DEMO_MAX_REQUESTS_PER_HOUR", "12")), window_seconds=3600
+)
+demo_daily_limiter = SlidingWindowRateLimiter(
+    limit=int(os.getenv("RAG_DEMO_MAX_REQUESTS_PER_DAY", "24")), window_seconds=86400
+)
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -96,6 +105,23 @@ def classify_validation_error(exc: ValueError) -> str:
 
 
 def enforce_rate_limit(http_request: Request) -> None:
+    demo_mode = os.getenv("RAG_DEMO_MODE", "").strip().lower() in {"1", "true", "yes"}
+    if demo_mode:
+        required = os.getenv("RAG_DEMO_API_TOKEN", "")
+        supplied = http_request.headers.get("X-RAG-Demo-Token", "")
+        if len(required) < 24 or not hmac.compare_digest(supplied, required):
+            raise HTTPException(status_code=401, detail="Demo authentication required.")
+        # Fail closed before spending an embedding or generation request.
+        if not demo_daily_limiter.allow("demo_global"):
+            raise HTTPException(
+                status_code=429, detail="Daily demo request limit reached.",
+                headers={"Retry-After": "3600"},
+            )
+        if not demo_hourly_limiter.allow("demo_global"):
+            raise HTTPException(
+                status_code=429, detail="Hourly demo request limit reached.",
+                headers={"Retry-After": "300"},
+            )
     # Use the actual peer address; forwarded headers are trusted only if the
     # deployment proxy and Uvicorn are independently configured to trust them.
     client_id = http_request.client.host if http_request.client else "unknown"
