@@ -6,6 +6,12 @@
 
 The original 30-question evaluation and its checkpoint/review formats are **unchanged**. Never pass this 120-question dataset to the 30-question gold loader. The JSONL schemas differ.
 
+## Recorded 120-question retrieval result
+
+The project owner's run against the full RAG-120 dataset (80 development questions and 40 held-out questions) recorded **96.6% Hit@10 and 0.64 MRR**. These are retrieval-ranking metrics only; they do not measure generated-answer correctness, citation faithfulness, or abstention quality. The per-question retrieval output and metric report used for this aggregate are not currently committed, so the public repository cannot independently recalculate the two figures yet.
+
+The separately committed 30-question result file remains a historical experiment. Its metrics must not be substituted for, or described as the source of, the RAG-120 result. The independent relevance-label workflow documented below is a separate validation path.
+
 ## Offline commands (run from the RAG project directory)
 
 ```bash
