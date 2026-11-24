@@ -40,10 +40,7 @@ Projects involving document ingestion, retrieval, LLM applications, and AI assis
 
 <br>
 
-**[Enterprise RAG Assistant](Generative-AI/enterprise-rag-assistant-v1)**
-
-Workplace-policy RAG assistant over 12 fictional policy PDFs and 1,985 chunks. Includes section-aware text/table ingestion, a Python FastAPI/Streamlit pipeline with Qdrant and BM25S/RRF, and a separate Cloudflare Workers/Vectorize/D1 deployment. Evaluation scope and limitations are documented in the project README.
-
+1. [Enterprise RAG Assistant](Generative-AI/enterprise-rag-assistant-v1) — workplace-policy RAG assistant over 12 fictional PDFs and 1,985 chunks, with section-aware text/table ingestion, a Python FastAPI/Streamlit + Qdrant/BM25S/RRF pipeline, and a separate Cloudflare Workers/Vectorize/D1 deployment. Evaluation scope and limitations are documented in its README.
 2. [Enterprise Knowledge Engine](Generative-AI/Enterprise-Knowledge-Engine)
 3. [Enterprise RAG Engine](Generative-AI/enterprise-rag-engine)
 4. [RBI Financial RAG Assistant](Generative-AI/rbi-financial-rag-assistant)
