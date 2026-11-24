@@ -18,6 +18,7 @@ A retrieval-augmented question-answering assistant for **12 fictional workplace 
 | Public retrieval storage | Cloudflare Vectorize (dense) + D1 FTS5 (keyword and source lookup) |
 | Access protection | Cloudflare Turnstile and bounded question sessions |
 | Original Python implementation | FastAPI, Streamlit, Qdrant, BM25S, reciprocal rank fusion (RRF) |
+| Python generation integration | LangChain prompt/orchestration components with the Gemini API |
 | Local validation | Pytest and Docker Compose |
 
 ## Live application architecture
