@@ -11,9 +11,9 @@ A retrieval-augmented question-answering assistant for **12 fictional workplace 
 | Component | Implementation |
 | --- | --- |
 | Corpus | 12 synthetic PDFs; **1,985 chunks** (1,766 text/body + 219 table) |
-| Embeddings | Gemini `gemini-embedding-2`, 768-dimensional vectors |
+| Embeddings | Gemini gemini-embedding-2, 768-dimensional vectors |
 | Retrieval | Semantic vector search + keyword/full-text search |
-| Answer generation | Groq `openai/gpt-oss-120b` in the public demo |
+| Answer generation | Groq openai/gpt-oss-120b in the public demo |
 | Public frontend / API | Cloudflare Pages + Workers |
 | Public retrieval storage | Cloudflare Vectorize (dense) + D1 FTS5 (keyword and source lookup) |
 | Access protection | Cloudflare Turnstile and bounded question sessions |
@@ -22,7 +22,7 @@ A retrieval-augmented question-answering assistant for **12 fictional workplace 
 
 ## Live application architecture
 
-```text
+~~~text
 Browser (Cloudflare Pages)
           |
           v
@@ -39,7 +39,7 @@ Browser (Cloudflare Pages)
           |                                 Groq answer generation
           |                                        |
           +<--------- Answer + source citations ---+
-```
+~~~
 
 The deployed assistant uses **hybrid retrieval**: vector similarity finds semantically related passages, while D1 full-text search finds keyword matches. Retrieved policy passages are supplied as evidence to the answer generator. The interface shows source-linked citations rather than a raw chunk dump.
 
@@ -66,11 +66,27 @@ The **RAG-120** evaluation set has **80 development questions** and **40 held-ou
 | Saved Groq development answers | **80 / 80** | Answer records and mechanical citation-reference validation completed |
 | Provisional source-anchor Hit@5 | **53 / 72 = 73.6%** | Source-text anchor diagnostic on answerable development questions; **not independently verified retrieval accuracy** |
 | Human factual/faithfulness reviews | **0 completed** | No defensible factual accuracy or faithfulness percentage yet |
-| Python automated tests | **345 passed** | Latest recorded local test run (November 22, 2026) |
+| Python automated tests | **345 passed** | Latest recorded local test run (November 22, 2026); see the [GitHub Actions run](https://github.com/raviteja-k-01/My-Projects/actions/runs/45036188759) |
 | Cloudflare Worker tests | **26 passed** | Latest recorded Worker test run |
 | Public-demo query latency | **3.25 s** | One observed end-to-end policy-query response; **not an average** |
 
-The saved development answers and retrieval checkpoints were evaluated against the **original Python implementation**. They are not a separate 80-query performance benchmark of the Cloudflare deployment. Mechanical citation validity is not the same as claim-level citation correctness or answer faithfulness.
+### Separate historical 30-question hybrid retrieval result
+
+The repository also retains an earlier, separate **30-question** gold set in data/evaluation/gold_questions.jsonl and its ranking output in data/evaluation/hybrid_retrieval_results.jsonl. Recalculating the committed per-question records gives:
+
+| Metric | Result |
+| --- | ---: |
+| Questions in the set | 30 |
+| Retrieval-evaluable questions | 29 |
+| Skipped questions | 1 (no expected retrieval chunks) |
+| Hit@10 | **28 / 29 = 96.6%** |
+| MRR | **0.6402** |
+
+These are **historical retrieval-ranking metrics for the 30-question set**, calculated against the expected_chunk_ids recorded in that set. They are **not results for RAG-120**, do not measure generated-answer correctness or faithfulness, and are not a benchmark of the Cloudflare deployment. The reference chunk labels should not be confused with independently completed human answer-quality reviews.
+
+The RAG-120 source-anchor diagnostic and the historical 30-question ranking metrics are different evaluations. Do not combine them or describe the 30-question metrics as results on 120 questions.
+
+The saved RAG-120 development answers and retrieval checkpoints were evaluated against the **original Python implementation**. They are not a separate 80-query performance benchmark of the Cloudflare deployment. Mechanical citation validity is not the same as claim-level citation correctness or answer faithfulness.
 
 See [RAG-120 evaluation methodology](docs/BENCHMARK_120.md), [answer replay/review](docs/BENCHMARK_120_ANSWER_REPLAY.md), and the [engineering reliability review](docs/RELIABILITY_REVIEW_20261119.md).
 
@@ -80,53 +96,53 @@ This directory contains the **original Python RAG application**, ingestion and r
 
 | Path | Contents |
 | --- | --- |
-| `src/ingestion/` | PDF parsing and deterministic text/table chunking |
-| `src/indexing/` and `src/retrieval/` | Embeddings, Qdrant/BM25S retrieval, fusion |
-| `src/rag/` and `src/generation/` | Evidence selection, generation, citation checks |
-| `src/api/` and `src/ui/` | Local FastAPI and Streamlit application |
-| `src/evaluation/`, `scripts/`, `tests/` | Benchmark utilities, reproducibility checks, tests |
-| `compose.yaml`, `Dockerfile.api`, `Dockerfile.ui` | Local containerized setup |
+| src/ingestion/ | PDF parsing and deterministic text/table chunking |
+| src/indexing/ and src/retrieval/ | Embeddings, Qdrant/BM25S retrieval, fusion |
+| src/rag/ and src/generation/ | Evidence selection, generation, citation checks |
+| src/api/ and src/ui/ | Local FastAPI and Streamlit application |
+| src/evaluation/, scripts/, tests/ | Benchmark utilities, reproducibility checks, tests |
+| compose.yaml, Dockerfile.api, Dockerfile.ui | Local containerized setup |
 
-**Source availability:** The live Cloudflare Worker is deployed separately; its runtime source is **not yet committed to this repository**. The local Python code in this directory is not the source used by the public Cloudflare endpoint. The links under `docs/` chiefly describe the local implementation and its historical experiments.
+**Source availability:** The live Cloudflare Worker is deployed separately; its runtime source is **not yet committed to this repository**. The local Python code in this directory is not the source used by the public Cloudflare endpoint. The links under docs/ chiefly describe the local implementation and its historical experiments.
 
 ## Run the original Python version locally
 
 **Prerequisites:** Python 3.11+, your own authorized API credentials, the matching **1,985-chunk BM25S artifacts**, and access to the corresponding Qdrant collection. Generated indexes, vector backups, evaluation captures, and credentials are not bundled in Git. A fresh clone alone cannot run the full pipeline.
 
-```bash
+~~~bash
 git clone https://github.com/raviteja-k-01/My-Projects.git
 cd My-Projects/Generative-AI/enterprise-rag-assistant-v1
 
 python -m venv .venv
-source .venv/bin/activate    # Windows PowerShell: .venv\Scripts\Activate.ps1
+source .venv/bin/activate    # Windows PowerShell: .venv/Scripts/Activate.ps1
 pip install -r requirements.txt
 cp .env.example .env         # Windows PowerShell: Copy-Item .env.example .env
-```
+~~~
 
-In the local, gitignored `.env`, configure `GEMINI_API_KEY`, `QDRANT_URL`, and `QDRANT_API_KEY`. For Groq answer generation, also configure `GROQ_API_KEY` and `RAG_GENERATION_PROVIDER=groq`. See [provider selection and optional failover](docs/GROQ_FAILOVER.md).
+In the local, gitignored .env, configure GEMINI_API_KEY, QDRANT_URL, and QDRANT_API_KEY. For Groq answer generation, also configure GROQ_API_KEY and RAG_GENERATION_PROVIDER=groq. See [provider selection and optional failover](docs/GROQ_FAILOVER.md).
 
 After restoring the **matching** BM25S artifacts, run a read-only preflight:
 
-```bash
+~~~bash
 python -m scripts.deployment_preflight --expect-chunks 1985
-```
+~~~
 
 Then start the two local services in separate terminals:
 
-```bash
+~~~bash
 python -m uvicorn src.api.app:app --host 127.0.0.1 --port 8000
-```
+~~~
 
-```bash
+~~~bash
 python -m streamlit run src/ui/app.py
-```
+~~~
 
-Open `http://localhost:8501`. Local Docker Compose instructions are in [LOCAL_CONTAINERS.md](docs/LOCAL_CONTAINERS.md). **Docker is used for local validation; Cloudflare serves the public demo.**
+Open http://localhost:8501. Local Docker Compose instructions are in [LOCAL_CONTAINERS.md](docs/LOCAL_CONTAINERS.md). **Docker is used for local validation; Cloudflare serves the public demo.**
 
 ## Limitations and security
 
 - The corpus is synthetic; this is **not** an operational policy-advice service.
 - Retrieved passages can be incomplete or irrelevant, and a syntactically valid citation can still accompany an unsupported claim. Human answer-quality review is unfinished.
-- The 73.6% source-anchor diagnostic is **provisional**; no verified Recall@K, MRR, faithfulness score, or production average latency is claimed.
+- The 73.6% source-anchor diagnostic is **provisional**; no verified RAG-120 Recall@K, MRR, faithfulness score, or production average latency is claimed.
 - API quotas and provider availability can affect live responses. Neither a health check nor passing offline tests guarantees live answer quality.
-- Never commit `.env` files, API keys, corpus/vector backups, private evaluation checkpoints, or sensitive deployment settings.
+- Never commit .env files, API keys, corpus/vector backups, private evaluation checkpoints, or sensitive deployment settings.
