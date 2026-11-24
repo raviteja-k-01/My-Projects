@@ -59,13 +59,14 @@ The original Python pipeline combines Qdrant and BM25S results with **RRF**. For
 
 ## Evaluation and observed results
 
-The **RAG-120** evaluation set has **80 development questions** and **40 held-out questions**. The held-out split was kept separate from development analysis.
+The **RAG-120** evaluation set has **120 questions**: **80 development** and **40 held-out**. The project owner's 120-question retrieval run recorded **96.6% Hit@10 and 0.64 MRR**. These are retrieval-ranking metrics, not generated-answer accuracy or faithfulness.
 
 | Check | Recorded result | What it establishes |
 | --- | --- | --- |
 | Development retrieval checkpoints | **80 / 80** | Saved rankings exist for all development questions |
 | Saved Groq development answers | **80 / 80** | Answer records and mechanical citation-reference validation completed |
 | Provisional source-anchor Hit@5 | **53 / 72 = 73.6%** | Source-text anchor diagnostic on answerable development questions; **not independently verified retrieval accuracy** |
+| 120-question retrieval benchmark | **96.6% Hit@10; 0.64 MRR** | Reported retrieval run across the 120-question RAG-120 dataset; these metrics do not measure answer correctness |
 | Human factual/faithfulness reviews | **0 completed** | No defensible factual accuracy or faithfulness percentage yet |
 | Python automated tests | **345 passed** | Latest recorded local test run (November 22, 2026); see the [GitHub Actions run](https://github.com/raviteja-k-01/My-Projects/actions/runs/45036188759) |
 | Cloudflare Worker tests | **26 passed** | Latest recorded Worker test run |
@@ -85,7 +86,7 @@ The repository also retains an earlier, separate **30-question** gold set in dat
 
 These are **historical retrieval-ranking metrics for the 30-question set**, calculated against the expected_chunk_ids recorded in that set. They are **not results for RAG-120**, do not measure generated-answer correctness or faithfulness, and are not a benchmark of the Cloudflare deployment. The reference chunk labels should not be confused with independently completed human answer-quality reviews.
 
-The RAG-120 source-anchor diagnostic and the historical 30-question ranking metrics are different evaluations. Do not combine them or describe the 30-question metrics as results on 120 questions.
+The RAG-120 retrieval result, its source-anchor diagnostic, and the historical 30-question ranking result are three distinct records. The 30-question results below are not the source of the 120-question result. The per-question RAG-120 retrieval output used for the 96.6% / 0.64 aggregate is not currently committed, so readers cannot independently recalculate that aggregate from the public repository.
 
 The saved RAG-120 development answers and retrieval checkpoints were evaluated against the **original Python implementation**. They are not a separate 80-query performance benchmark of the Cloudflare deployment. Mechanical citation validity is not the same as claim-level citation correctness or answer faithfulness.
 
@@ -144,6 +145,6 @@ Open http://localhost:8501. Local Docker Compose instructions are in [LOCAL_CONT
 
 - The corpus is synthetic; this is **not** an operational policy-advice service.
 - Retrieved passages can be incomplete or irrelevant, and a syntactically valid citation can still accompany an unsupported claim. Human answer-quality review is unfinished.
-- The 73.6% source-anchor diagnostic is **provisional**; no verified RAG-120 Recall@K, MRR, faithfulness score, or production average latency is claimed.
+- The 73.6% source-anchor diagnostic is **provisional** and is not Recall@K or answer accuracy. The recorded RAG-120 Hit@10/MRR values measure retrieval ranking only; they do not establish answer faithfulness. Human factual/faithfulness review remains incomplete.
 - API quotas and provider availability can affect live responses. Neither a health check nor passing offline tests guarantees live answer quality.
 - Never commit .env files, API keys, corpus/vector backups, private evaluation checkpoints, or sensitive deployment settings.
