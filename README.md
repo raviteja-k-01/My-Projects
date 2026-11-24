@@ -1,16 +1,14 @@
-﻿# My Projects
+# My Projects
 
 Hi, I'm Ravi Teja.
 
-I work with Python, machine learning, computer vision, and LLM-based applications.
-
-I've kept my projects here in one place, grouped by what they focus on. You can explore the code by opening any of the sections below.
+I build Python applications across machine learning, computer vision, and retrieval-augmented generation. This repository groups the source code, implementation notes, and validation evidence for my projects.
 
 ---
 
 ## Computer Vision
 
-Work involving object detection, tracking, matchmoving, and image segmentation.
+Work involving object detection, tracking, foreground segmentation, and camera reconstruction.
 
 <details open>
 <summary><b>Explore projects (3)</b></summary>
@@ -19,11 +17,11 @@ Work involving object detection, tracking, matchmoving, and image segmentation.
 
 **[Real-Time Warehouse Vision System](Computer-Vision/realtime-warehouse-vision-system)**
 
-A warehouse monitoring system built with YOLO and OpenCV for object detection, QR tracking, and pallet association.
+Prerecorded-video warehouse pipeline using a fine-tuned six-class YOLOv8 detector and ByteTrack. Includes QR crop decoding, track-level identity caching, box/pallet/zone association, PostgreSQL event persistence, and a Streamlit dashboard. The project does not process a live CCTV feed.
 
 **[AI MatchMove](Computer-Vision/ai-matchmove)**
 
-A matchmove project with a Python backend and a Vite-based frontend.
+FastAPI and React application for VFX camera tracking. Supports video and PNG/JPEG/RGB EXR sequences, OpenCV optical-flow foreground analysis, optional reviewed SAM ViT-B masks, SIFT feature matching, PyCOLMAP sparse reconstruction, and Blender export.
 
 **[Segmentation using SAM](Computer-Vision/Segmentation_using_SAM_model)**
 
@@ -35,14 +33,17 @@ Image and video segmentation using the Segment Anything Model.
 
 ## Generative AI & RAG
 
-My projects involving LLMs, document retrieval, and AI assistants.
+Projects involving document ingestion, retrieval, LLM applications, and AI assistants.
 
 <details>
 <summary><b>Explore projects (5)</b></summary>
 
 <br>
 
-1. [Enterprise RAG Assistant](Generative-AI/enterprise-rag-assistant-v1)
+**[Enterprise RAG Assistant](Generative-AI/enterprise-rag-assistant-v1)**
+
+Workplace-policy RAG assistant over 12 fictional policy PDFs and 1,985 chunks. Includes section-aware text/table ingestion, a Python FastAPI/Streamlit pipeline with Qdrant and BM25S/RRF, and a separate Cloudflare Workers/Vectorize/D1 deployment. Evaluation scope and limitations are documented in the project README.
+
 2. [Enterprise Knowledge Engine](Generative-AI/Enterprise-Knowledge-Engine)
 3. [Enterprise RAG Engine](Generative-AI/enterprise-rag-engine)
 4. [RBI Financial RAG Assistant](Generative-AI/rbi-financial-rag-assistant)
@@ -59,9 +60,9 @@ My projects involving LLMs, document retrieval, and AI assistants.
 
 <br>
 
-[Customer Churn Prediction](Machine-Learning/Customer-Churn-Prediction)
+**[Customer Churn Prediction](Machine-Learning/Customer-Churn-Prediction)**
 
-A machine learning project focused on predicting customer churn.
+XGBoost churn classifier with leakage-safe preprocessing, customer-level train/test separation, a Streamlit single/batch prediction interface, and SHAP explanations. The README reports held-out metrics and dataset limitations.
 
 </details>
 
@@ -113,6 +114,6 @@ Some of my earlier Python projects and practice work.
 
 ### Notes
 
-Some projects require additional setup, datasets, or model weights that aren't included in this repository.
+Some projects require additional setup, datasets, API credentials, or model weights that are not included in this repository.
 
-I've also kept my earlier projects here rather than removing them. They're part of my learning and development work.
+Earlier projects are retained as part of the development history. Check each project's README for its prerequisites, validation evidence, and known limitations.
