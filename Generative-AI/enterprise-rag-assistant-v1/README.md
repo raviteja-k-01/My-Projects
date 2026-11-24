@@ -1,8 +1,29 @@
 # Enterprise RAG Assistant V1
 
-An evidence-grounded assistant for 12 **fictional** enterprise policy PDFs.
-FastAPI serves retrieval and generation; Streamlit displays answers with
-source citations. **Live model reliability and answer quality remain unverified.**
+A retrieval-augmented assistant for 12 **fictional** enterprise policy PDFs.
+FastAPI serves retrieval and answer generation; Streamlit presents answers with
+source citations. The project demonstrates a complete RAG pipeline, while
+independent answer-quality review and public production deployment remain
+incomplete.
+
+## Project highlights
+
+- Built a deterministic ingestion pipeline producing **1,985 source-linked
+  chunks** from policy text and tables.
+- Implemented hybrid retrieval with **Qdrant dense search**, **BM25S**, and
+  **reciprocal rank fusion**, followed by bounded evidence selection.
+- Connected the retrieval pipeline to **FastAPI** and a **Streamlit** user
+  interface, with source references, explicit abstention, and health checks.
+- Added reproducible evaluation workflows for the supplied **120-question**
+  benchmark, preserving its 80-question development and 40-question held-out
+  split.
+
+**Core stack:** Python, FastAPI, Streamlit, Qdrant, BM25S, Gemini Embedding 2,
+Groq/Gemini generation, Docker Compose, pytest, and openpyxl.
+
+**Separate experiment:** A Cloudflare Workers version using Vectorize and D1
+exists as an alternative implementation; it is not part of the Python
+application's request path and has not been production-validated.
 
 ## Current evidence
 
@@ -14,20 +35,23 @@ offline checks from historical provider results and remaining release gates.
 | Corpus | 12 PDFs; 1,985 source-locked chunks (1,766 body, 219 table) |
 | Embeddings | Existing `gemini-embedding-2`, 768 dimensions, unchanged |
 | Retrieval | Qdrant dense + BM25S sparse + reciprocal rank fusion |
-| RAG-120 | 80 development questions; 40 held-out questions unused for tuning |
-| Development checkpoints | 80/80 retrievals; 80/80 verified Groq answers; 2 legacy Gemini answers |
-| New configuration smoke test | 1/80 answers in a separate experiment; first attempt succeeded in 22.9 s |
+| RAG-120 | Original supplied dataset: 80 development questions and 40 held-out questions |
+| Saved development artifacts | 80/80 retrieval checkpoints and 80/80 Groq answer records; these are not 80 live API captures |
+| Live API captures | 3 successful responses and 2 recorded failures; the live evaluation is incomplete |
 | Human answer review | 0 completed; no semantic accuracy scores assigned |
-| Offline tests | 337 passed in Linux Docker on 2026-11-22; answer quality unverified |
+| Offline tests | 345 passed in Linux Docker on the last verified full run; subsequent rate-limit edits were not fully validated |
 | Docker smoke test | API and UI images built; API `/readyz`, `/health`, and UI HTTP 200 verified |
-| Answer review | 80 Groq answers mechanically validated; 0 human-reviewed |
+| Answer checks | Citation mechanics passed for 80 saved answers; factual correctness remains unverified |
 | Retrieval coverage | 72/72 answerable development questions matched expected document and page; 8/8 unanswerable questions had no expected evidence |
 | Evidence comparison | 73/101 source anchors before and after; no per-question regression |
 | Docker | Local images build; live provider and public deployment are separate gates |
 
 Anchor matching is a diagnostic, **not Recall@K or answer accuracy**. Recall/MRR
-require reviewed relevance labels. Valid citation IDs do not prove claim support.
-The earlier 30-question gold workflow remains a separate historical experiment.
+require independently reviewed relevance labels. The saved answer records and
+citation checks do not establish factual completeness, groundedness, or
+claim-level citation correctness. No validated Hit@10, MRR, or answer-accuracy
+score is claimed for the 120-question benchmark. The earlier 30-question gold
+workflow is a separate historical experiment.
 
 ## Pipeline and safeguards
 
@@ -173,8 +197,8 @@ starts, request failures or downtime; it is not an unlimited service.
 
 ## Remaining release gates
 
-- Authorize broader development evaluation; one generation-only smoke test has passed.
-- Complete development answers and independent relevance/claim/citation review.
+- Complete live development captures when provider capacity and authorization permit.
+- Independently review retrieval relevance, answer claims, citations, and abstention.
 - Verify real-model abstention and handling of conflicting evidence.
 - Freeze a validated configuration before unlocking the 40-question test split.
 - Verify a real deployed end-to-end question before claiming a reliable live demo.
