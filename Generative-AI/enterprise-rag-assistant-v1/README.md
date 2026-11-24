@@ -35,7 +35,7 @@ offline checks from historical provider results and remaining release gates.
 | Corpus | 12 PDFs; 1,985 source-locked chunks (1,766 body, 219 table) |
 | Embeddings | Existing `gemini-embedding-2`, 768 dimensions, unchanged |
 | Retrieval | Qdrant dense + BM25S sparse + reciprocal rank fusion |
-| RAG-120 | Original supplied dataset: 80 development questions and 40 held-out questions |
+| RAG-120 | 120 questions: 80 development and 40 held-out; recorded retrieval result: **96.6% Hit@10, 0.64 MRR** |
 | Saved development artifacts | 80/80 retrieval checkpoints and 80/80 Groq answer records; these are not 80 live API captures |
 | Live API captures | 3 successful responses and 2 recorded failures; the live evaluation is incomplete |
 | Human answer review | 0 completed; no semantic accuracy scores assigned |
@@ -46,12 +46,15 @@ offline checks from historical provider results and remaining release gates.
 | Evidence comparison | 73/101 source anchors before and after; no per-question regression |
 | Docker | Local images build; live provider and public deployment are separate gates |
 
-Anchor matching is a diagnostic, **not Recall@K or answer accuracy**. Recall/MRR
-require independently reviewed relevance labels. The saved answer records and
-citation checks do not establish factual completeness, groundedness, or
-claim-level citation correctness. No validated Hit@10, MRR, or answer-accuracy
-score is claimed for the 120-question benchmark. The earlier 30-question gold
-workflow is a separate historical experiment.
+Anchor matching is a diagnostic, **not Recall@K or answer accuracy**. The recorded
+RAG-120 retrieval run reports **96.6% Hit@10 and 0.64 MRR** across the 120-question
+dataset. These are retrieval-ranking metrics only; they do not establish answer
+correctness, groundedness, citation faithfulness, or abstention quality. The
+per-question RAG-120 retrieval output used for the aggregate is not committed,
+so the public repository cannot independently recalculate it yet. The separate
+30-question gold workflow remains a historical experiment and is not the source
+of the 120-question result. The independent relevance-label scorer remains a
+separate validation workflow.
 
 ## Pipeline and safeguards
 
